@@ -41,9 +41,14 @@ const main = async () => {
     console.log("Gas Price: " + ethers.utils.formatEther(gas));
 
     // first restake on launch
-    restake();
+    const firstLaunch = await restake();
 
-    // continues until stopped
+    // schedule next reattempt
+    if (!firstLaunch) {
+      console.log("Launch Restake Failed!");
+      console.log("Trying again tomorrow");
+      scheduleNext(new Date());
+    }
   } catch (error) {
     console.error(error);
   }
@@ -67,13 +72,11 @@ const restake = async () => {
       // restake successful schedule next
       console.log("RESTAKE SUCCESSFUL");
       scheduleNext(new Date());
-      return;
+      return true;
     }
   } catch (error) {
-    // restake failed try again tomorrow
     console.error(error);
-    scheduleNext(new Date());
-    return;
+    return false;
   }
 };
 
@@ -82,7 +85,7 @@ const scheduleNext = async (nextDate) => {
   // set the next restake time (24hrs, 1min, 30sec from now)
   nextDate.setHours(nextDate.getHours() + 24);
   nextDate.setMinutes(nextDate.getMinutes() + 1);
-  nextDate.setSeconds(nextDate.getSeconds() + 30); 
+  nextDate.setSeconds(nextDate.getSeconds() + 30);
   console.log("Next Restake: " + nextDate);
 
   // schedule next restake
