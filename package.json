@@ -4,8 +4,7 @@
   "description": "Simple Bot to Restake AXS every 24h on Ronin chain",
   "main": "ronin.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node ronin.js"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",
