@@ -1,0 +1,29 @@
+{
+  "name": "crabada-mining-bot",
+  "version": "1.0.0",
+  "description": "Simple Crabada Mining Bot",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AzureKn1ght/Crabada-Mining-Bot.git"
+  },
+  "keywords": [
+    "Crabada",
+    "Mining",
+    "Bot"
+  ],
+  "author": "Philson Nah",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/AzureKn1ght/Crabada-Mining-Bot/issues"
+  },
+  "homepage": "https://github.com/AzureKn1ght/Crabada-Mining-Bot#readme",
+  "dependencies": {
+    "dotenv": "^16.0.0",
+    "ethers": "^5.6.2",
+    "node-schedule": "^2.1.0"
+  }
+}
