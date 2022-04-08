@@ -1,26 +1,27 @@
 {
-  "name": "crabada-mining-bot",
+  "name": "axs-restake-bot",
   "version": "1.0.0",
-  "description": "Simple Crabada Mining Bot",
-  "main": "index.js",
+  "description": "Simple Bot to Restake AXS every 24h on Ronin chain",
+  "main": "ronin.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node ronin.js"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/AzureKn1ght/Crabada-Mining-Bot.git"
+    "url": "git+https://github.com/AzureKn1ght/AXS-Restake.git"
   },
   "keywords": [
-    "Crabada",
-    "Mining",
-    "Bot"
+    "AXS",
+    "Ronin",
+    "Axie Infinity"
   ],
   "author": "Philson Nah",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/AzureKn1ght/Crabada-Mining-Bot/issues"
+    "url": "https://github.com/AzureKn1ght/AXS-Restake/issues"
   },
-  "homepage": "https://github.com/AzureKn1ght/Crabada-Mining-Bot#readme",
+  "homepage": "https://github.com/AzureKn1ght/AXS-Restake#readme",
   "dependencies": {
     "dotenv": "^16.0.0",
     "ethers": "^5.6.2",
