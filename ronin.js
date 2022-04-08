@@ -82,7 +82,7 @@ const scheduleNext = async (nextDate) => {
   // set the next restake time (24hrs, 1min, 30sec from now)
   nextDate.setHours(nextDate.getHours() + 24);
   nextDate.setMinutes(nextDate.getMinutes() + 1);
-  nextDate.setSeconds(nextDate.getSeconds() + 30); //test just the seconds tmr
+  nextDate.setSeconds(nextDate.getSeconds() + 30); 
   console.log("Next Restake: " + nextDate);
 
   // schedule next restake
