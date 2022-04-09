@@ -1,12 +1,20 @@
 const scheduler = require("node-schedule");
 const { ethers } = require("ethers");
+const figlet = require("figlet");
 require("dotenv").config();
+const fs = require("fs");
 
 // Import environment variables
 const RPC_URL = process.env.RONIN_RPC;
 const WALLET_ADDRESS = process.env.USER_ADDRESS;
 const USER_AGENT = process.env.USER_AGENT;
 const PRIV_KEY = process.env.USER_PRIVATE_KEY;
+
+// State storage object for restakes
+var restakes = {
+  previousRestake: "",
+  nextRestake: "",
+};
 
 // Initialize ethers components
 const provider = new ethers.getDefaultProvider(
@@ -32,22 +40,52 @@ const connectedContract = contract.connect(wallet);
 // Main Function
 const main = async () => {
   try {
+    // hello world
+    console.log(
+      figlet.textSync("AXSRestake", {
+        font: "Standard",
+        horizontalLayout: "default",
+        verticalLayout: "default",
+        width: 80,
+        whitespaceBreak: true,
+      })
+    );
+
     // current ronin balance
     const balance = await provider.getBalance(WALLET_ADDRESS);
     console.log("RON Balance: " + ethers.utils.formatEther(balance));
+    let restakeExists = false;
 
-    // get current gas price
-    const gas = await provider.getGasPrice();
-    console.log("Gas Price: " + ethers.utils.formatEther(gas));
+    try {
+      // get stored values from file
+      const storedData = JSON.parse(fs.readFileSync("./restakes.json"));
 
-    // first restake on launch
-    const firstLaunch = await restake();
+      // not first launch, check data
+      if ("nextRestake" in storedData) {
+        const nextRestake = new Date(storedData.nextRestake);
+        const currentDate = new Date();
 
-    // schedule next reattempt
-    if (!firstLaunch) {
-      console.log("Launch Restake Failed!");
-      console.log("Trying again tomorrow");
-      scheduleNext(new Date());
+        // restore restake schedule
+        if (nextRestake > currentDate) {
+          console.log("Restored Restake: " + nextRestake);
+          scheduler.scheduleJob(nextRestake, restake);
+          restakeExists = true;
+        }
+      }
+    } catch (error) {
+      console.error(error);
+    }
+
+    // no previous launch data detected
+    if (!restakeExists) {
+      const firstLaunch = await restake();
+
+      // launch failed schedule reattempt
+      if (!firstLaunch) {
+        console.log("Launch Restake Failed!");
+        console.log("Trying again tomorrow");
+        scheduleNext(new Date());
+      }
     }
   } catch (error) {
     console.error(error);
@@ -70,6 +108,7 @@ const restake = async () => {
     // wait for transaction to complete
     if (receipt) {
       // restake successful schedule next
+      restakes.previousRestake = new Date().toString();
       console.log("RESTAKE SUCCESSFUL");
       scheduleNext(new Date());
       return true;
@@ -80,16 +119,30 @@ const restake = async () => {
   }
 };
 
+// Data Storage Function
+const storeData = async () => {
+  const data = JSON.stringify(restakes);
+  fs.writeFile("./restakes.json", data, (err) => {
+    if (err) {
+      console.error(err);
+    } else {
+      console.log("Data stored: " + data);
+    }
+  });
+};
+
 // Job Scheduler Function
 const scheduleNext = async (nextDate) => {
   // set the next restake time (24hrs, 1min, 30sec from now)
   nextDate.setHours(nextDate.getHours() + 24);
   nextDate.setMinutes(nextDate.getMinutes() + 1);
   nextDate.setSeconds(nextDate.getSeconds() + 30);
+  restakes.nextRestake = nextDate.toString();
   console.log("Next Restake: " + nextDate);
 
   // schedule next restake
   scheduler.scheduleJob(nextDate, restake);
+  storeData();
   return;
 };
 
