@@ -28,7 +28,7 @@ const provider = new ethers.getDefaultProvider(
 const stakingABI = ["function stake(uint256)"];
 const claimsABI = ["function claimPendingRewards()"];
 const swapsABI = [
-  "function swapExactRONForTokens(uint256, address[], address, uint256) external payable returns (uint[]);",
+  "function swapExactRONForTokens(uint256, address[], address, uint256) external payable returns (uint[])",
   "function getAmountsOut(uint, address[]) public view returns (uint[])",
 ];
 
@@ -120,68 +120,49 @@ const main = async () => {
 
 // AXS Compound Function
 const RONCompound = async () => {
-  const amount = await ethers.utils.formatEther(
-    await provider.getBalance(WALLET_ADDRESS)
-  );
-
-  console.log("RON Balance: " + amount);
-
-  // input variables
-  const path = [WRON, WETH, AXS];
-  const amountIn = ethers.utils.parseEther((amount - 0.01).toString());
-  console.log(amountIn);
-
-  const amountOut = await katanaRouter.getAmountsOut(amountIn, path);
-  const result = ethers.utils.formatEther(amountOut[2]);
-
-  console.log(amountOut);
-  console.log(result);
-
-  //claimRON();
-  //swapRON();
+  //claimRONrewards();
+  swapRONforAXS(0.01);
 };
 
-// Function:swapExactRONForTokens(uint256,address[],address,uint256)
-// Arguments:
-// [0]-[_amountOutMin]: 109364955571100485
-// [1]-[_path]: ["0xe514d9deb7966c8be0ca922de8a064264ea6bcd4","0xc99a6a985ed2cac1ef41640596c5a5f9f4e19ef5","0x97a9107c1793bc407d6f527b77e7fff4d812bece"]
-// [2]-[_to]: 0x881e1143f253d9a3e9fa1836294f65700ce21246
-// [3]-[_deadline]: 1649655672
-
-// Swaps Function
-const swapRON = async (amount) => {
+// Swap Function
+const swapRONforAXS = async (amount) => {
   try {
+    // cannot swap if too small
+    if (amount < 0.04) throw "Conversion value too small!";
+
+    // save 0.02 for gas
+    amount = amount - 0.02;
     const path = [WRON, WETH, AXS];
 
     // calculate input variables
-    const amountIn = ethers.utils.parseEther((amount - 0.02).toString());
-    const marketConversion = await katanaRouter.getAmountsOut(amountIn, path);
-    let amountOutMin = Number(ethers.utils.formatEther(amountOut[2])) * 0.99;
+    const amountIn = ethers.utils.parseEther(amount.toString());
+    const result = await katanaRouter.getAmountsOut(amountIn, path);
+    const amountOut = Number(ethers.utils.formatEther(result[2])) * 0.99;
+    console.log(`Swapping: ${amount} RON, For: ${amountOut} AXS`);
+    const amountOutMin = ethers.utils.parseEther(amountOut.toString());
+    const deadline = Date.now() + 1000 * 60 * 3;
 
-    console.log(amountOut);
-    console.log(result);
-
-    // input variables
-    const path = [WRON, WETH, AXS];
-    const amountIn = ethers.utils.parseEther((amount - 0.02).toString());
-    const amountOut = await katanaRouter.getAmountsOut(amountIn, path);
-
-    // set random gasLimit to avoid detection
+    // set gasLimit and value amount
     const randomGas = 400000 + (Math.random() * (99999 - 10000) + 10000);
     const overrideOptions = {
       gasLimit: Math.floor(randomGas),
+      value: amountIn,
     };
 
-    // execute the RON claiming transaction
-    const claim = await claimsContract.claimPendingRewards(overrideOptions);
-    const receipt = await claim.wait();
+    // execute the RON swapping transaction
+    const claim = await katanaRouter.swapExactRONForTokens(
+      amountOutMin,
+      path,
+      WALLET_ADDRESS,
+      deadline,
+      overrideOptions
+    );
 
     // wait for transaction to complete
+    const receipt = await claim.wait();
     if (receipt) {
       claims.previousClaim = new Date().toString();
-      console.log("RON CLAIM SUCCESSFUL");
-      const balance = await provider.getBalance(WALLET_ADDRESS);
-      console.log("RON Balance: " + ethers.utils.formatEther(balance));
+      console.log("RON SWAP SUCCESSFUL");
       return true;
     }
   } catch (error) {
@@ -191,7 +172,7 @@ const swapRON = async (amount) => {
 };
 
 // Claims Function
-const claimRON = async () => {
+const claimRONrewards = async () => {
   try {
     // set random gasLimit to avoid detection
     const randomGas = 400000 + (Math.random() * (99999 - 10000) + 10000);
