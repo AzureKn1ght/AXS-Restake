@@ -28,16 +28,14 @@ const provider = new ethers.getDefaultProvider(
 const stakingABI = ["function stake(uint256)"];
 const claimsABI = ["function claimPendingRewards()"];
 const swapsABI = [
-  "function swapExactRONForTokens(uint256, address[], address, uint256)",
+  "function swapExactRONForTokens(uint256, address[], address, uint256) external payable returns (uint[]);",
   "function getAmountsOut(uint, address[]) public view returns (uint[])",
 ];
-
 
 // function swapExactETHForTokens(uint amountOutMin, address[] calldata path, address to, uint deadline)
 //   external
 //   payable
 //   returns (uint[] memory amounts);
-
 
 // All relevant addresses needed
 const AXS = "0x97a9107c1793bc407d6f527b77e7fff4d812bece";
@@ -130,12 +128,12 @@ const RONCompound = async () => {
 
   // input variables
   const path = [WRON, WETH, AXS];
-  const amountIn = ethers.utils.parseEther((amount-0.01).toString());
-    console.log(amountIn);
+  const amountIn = ethers.utils.parseEther((amount - 0.01).toString());
+  console.log(amountIn);
 
   const amountOut = await katanaRouter.getAmountsOut(amountIn, path);
-  const result = ethers.utils.formatEther(amountOut[2]); 
-  
+  const result = ethers.utils.formatEther(amountOut[2]);
+
   console.log(amountOut);
   console.log(result);
 
@@ -155,9 +153,6 @@ const swapRON = async (amount) => {
   try {
     const path = [WRON, WETH, AXS];
 
-    
-   
-
     // calculate input variables
     const amountIn = ethers.utils.parseEther((amount - 0.02).toString());
     const marketConversion = await katanaRouter.getAmountsOut(amountIn, path);
@@ -165,36 +160,11 @@ const swapRON = async (amount) => {
 
     console.log(amountOut);
     console.log(result);
-    
-    
-    
-    
-    
+
     // input variables
     const path = [WRON, WETH, AXS];
     const amountIn = ethers.utils.parseEther((amount - 0.02).toString());
     const amountOut = await katanaRouter.getAmountsOut(amountIn, path);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     // set random gasLimit to avoid detection
     const randomGas = 400000 + (Math.random() * (99999 - 10000) + 10000);
