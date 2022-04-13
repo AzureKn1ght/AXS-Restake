@@ -27,15 +27,11 @@ const provider = new ethers.getDefaultProvider(
 // Contract ABIs
 const stakingABI = ["function stake(uint256)"];
 const claimsABI = ["function claimPendingRewards()"];
-const swapsABI = [
-  "function swapExactRONForTokens(uint256, address[], address, uint256) external payable returns (uint[])",
+const erc20ABI = ["function balanceOf(address) view returns (uint256)"];
+const katanaABI = [
+  "function swapExactRONForTokens(uint256, address[], address, uint256) payable",
   "function getAmountsOut(uint, address[]) public view returns (uint[])",
 ];
-
-// function swapExactETHForTokens(uint amountOutMin, address[] calldata path, address to, uint deadline)
-//   external
-//   payable
-//   returns (uint[] memory amounts);
 
 // All relevant addresses needed
 const AXS = "0x97a9107c1793bc407d6f527b77e7fff4d812bece";
@@ -47,9 +43,12 @@ const stakingAdd = "0x05b0bb3c1c320b280501b86706c3551995bc8571";
 
 // Setup wallet and contract connections
 const wallet = new ethers.Wallet(PRIV_KEY, provider);
-const katanaRouter = new ethers.Contract(katanaAdd, swapsABI, provider).connect(
-  wallet
-);
+const axsContract = new ethers.Contract(AXS, erc20ABI, provider);
+const katanaRouter = new ethers.Contract(
+  katanaAdd,
+  katanaABI,
+  provider
+).connect(wallet);
 const stakingContract = new ethers.Contract(
   stakingAdd,
   stakingABI,
@@ -120,8 +119,39 @@ const main = async () => {
 
 // AXS Compound Function
 const RONCompound = async () => {
-  //claimRONrewards();
-  swapRONforAXS(0.01);
+  //const balance = await claimRONrewards();
+  //const swapped = await swapRONforAXS(balance);
+
+  const swapped = true;
+  if (swapped) {
+    console.log("Swapped RON for AXS");
+  }
+};
+
+// Stake Function
+const stakeAXStokens = async () => {
+  // try {
+  //   // set random gasLimit to avoid detection
+  //   const randomGas = 400000 + (Math.random() * (99999 - 10000) + 10000);
+  //   const overrideOptions = {
+  //     gasLimit: Math.floor(randomGas),
+  //   };
+  //   // execute the RON claiming transaction
+  //   const claim = await claimsContract.claimPendingRewards(overrideOptions);
+  //   const receipt = await claim.wait();
+  //   // wait for transaction to complete
+  //   if (receipt) {
+  //     claims.previousClaim = new Date().toString();
+  //     console.log("RON CLAIM SUCCESSFUL");
+  //     let balance = await provider.getBalance(WALLET_ADDRESS);
+  //     balance = ethers.utils.formatEther(balance);
+  //     console.log("RON Balance: " + balance);
+  //     return balance;
+  //   }
+  // } catch (error) {
+  //   console.error(error);
+  // }
+  // return false;
 };
 
 // Swap Function
@@ -140,7 +170,7 @@ const swapRONforAXS = async (amount) => {
     const amountOut = Number(ethers.utils.formatEther(result[2])) * 0.99;
     console.log(`Swapping: ${amount} RON, For: ${amountOut} AXS`);
     const amountOutMin = ethers.utils.parseEther(amountOut.toString());
-    const deadline = Date.now() + 1000 * 60 * 3;
+    const deadline = Date.now() + 1000 * 60 * 5;
 
     // set gasLimit and value amount
     const randomGas = 400000 + (Math.random() * (99999 - 10000) + 10000);
@@ -167,8 +197,8 @@ const swapRONforAXS = async (amount) => {
     }
   } catch (error) {
     console.error(error);
-    return false;
   }
+  return false;
 };
 
 // Claims Function
@@ -188,57 +218,17 @@ const claimRONrewards = async () => {
     if (receipt) {
       claims.previousClaim = new Date().toString();
       console.log("RON CLAIM SUCCESSFUL");
-      const balance = await ethers.utils.formatEther(
-        provider.getBalance(WALLET_ADDRESS)
-      );
 
+      let balance = await provider.getBalance(WALLET_ADDRESS);
+      balance = ethers.utils.formatEther(balance);
       console.log("RON Balance: " + balance);
-      return true;
+      return balance;
     }
   } catch (error) {
     console.error(error);
-    return false;
   }
+  return false;
 };
-
-// // Restake Function
-// const restake = async () => {
-//   try {
-//     // set random gasLimit to avoid detection
-//     const randomGas = 400000 + (Math.random() * (99999 - 10000) + 10000);
-//     const overrideOptions = {
-//       gasLimit: Math.floor(randomGas),
-//     };
-
-//     // execute the restaking transaction
-//     const restake = await connectedContract.restakeRewards(overrideOptions);
-//     const receipt = await restake.wait();
-
-//     // wait for transaction to complete
-//     if (receipt) {
-//       // restake successful schedule next
-//       restakes.previousRestake = new Date().toString();
-//       console.log("RESTAKE SUCCESSFUL");
-//       scheduleNext(new Date());
-//       return true;
-//     }
-//   } catch (error) {
-//     console.error(error);
-//     return false;
-//   }
-// };
-
-// // Data Storage Function
-// const storeData = async () => {
-//   const data = JSON.stringify(claims);
-//   fs.writeFile("./claims.json", data, (err) => {
-//     if (err) {
-//       console.error(err);
-//     } else {
-//       console.log("Data stored: \n" + data);
-//     }
-//   });
-// };
 
 // Job Scheduler Function
 const scheduleNext = async (nextDate) => {
@@ -247,7 +237,7 @@ const scheduleNext = async (nextDate) => {
   nextDate.setMinutes(nextDate.getMinutes() + 1);
   nextDate.setSeconds(nextDate.getSeconds() + 30);
   restakes.nextRestake = nextDate.toString();
-  console.log("Next Restake: " + nextDate);
+  console.log("Next Claim: " + nextDate);
 
   // schedule next restake
   scheduler.scheduleJob(nextDate, RONCompound);
