@@ -124,34 +124,46 @@ const RONCompound = async () => {
 
   const swapped = true;
   if (swapped) {
-    console.log("Swapped RON for AXS");
+    stakeAXStokens();
   }
 };
 
 // Stake Function
 const stakeAXStokens = async () => {
-  // try {
-  //   // set random gasLimit to avoid detection
-  //   const randomGas = 400000 + (Math.random() * (99999 - 10000) + 10000);
-  //   const overrideOptions = {
-  //     gasLimit: Math.floor(randomGas),
-  //   };
-  //   // execute the RON claiming transaction
-  //   const claim = await claimsContract.claimPendingRewards(overrideOptions);
-  //   const receipt = await claim.wait();
-  //   // wait for transaction to complete
-  //   if (receipt) {
-  //     claims.previousClaim = new Date().toString();
-  //     console.log("RON CLAIM SUCCESSFUL");
-  //     let balance = await provider.getBalance(WALLET_ADDRESS);
-  //     balance = ethers.utils.formatEther(balance);
-  //     console.log("RON Balance: " + balance);
-  //     return balance;
-  //   }
-  // } catch (error) {
-  //   console.error(error);
-  // }
-  // return false;
+  try {
+    // get current AXS balance
+    const balance = await axsContract.balanceOf(WALLET_ADDRESS);
+    const formattedBal = ethers.utils.formatEther(balance);
+    console.log("AXS Balance: " + formattedBal);
+
+    // reject staking if too small
+    if (formattedBal < 0.01) throw "Staking value too small!";
+
+    // set random gasLimit to avoid detection
+    const randomGas = 400000 + (Math.random() * (99999 - 10000) + 10000);
+    const overrideOptions = {
+      gasLimit: Math.floor(randomGas),
+    };
+
+    // execute the AXS staking transaction
+    console.log("Staking AXS Tokens...");
+    const stake = await stakingContract.stake(balance, overrideOptions);
+    const receipt = await stake.wait();
+
+    // wait for transaction to complete
+    if (receipt) {
+      console.log("AXS STAKE SUCCESSFUL");
+      const ronBal = await provider.getBalance(WALLET_ADDRESS);
+      console.log("RON Balance: " + ethers.utils.formatEther(ronBal));
+      const axsBal = await axsContract.balanceOf(WALLET_ADDRESS);
+      console.log("AXS Balance: " + ethers.utils.formatEther(axsBal));
+
+      return true;
+    }
+  } catch (error) {
+    console.error(error);
+  }
+  return false;
 };
 
 // Swap Function
