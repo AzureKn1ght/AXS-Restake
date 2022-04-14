@@ -76,16 +76,9 @@ const main = async () => {
       console.error(error);
     }
 
-    // no previous launch data detected
+    // no previous launch
     if (!restakeExists) {
-      const firstLaunch = await restake();
-
-      // launch failed schedule reattempt
-      if (!firstLaunch) {
-        console.log("Launch Restake Failed!");
-        console.log("Trying again tomorrow");
-        scheduleNext(new Date());
-      }
+      restake();
     }
   } catch (error) {
     console.error(error);
@@ -111,12 +104,18 @@ const restake = async () => {
       restakes.previousRestake = new Date().toString();
       console.log("RESTAKE SUCCESSFUL");
       scheduleNext(new Date());
+
       return true;
     }
   } catch (error) {
     console.error(error);
-    return false;
+
+    // restake failed try again tomorrow
+    console.log("Restake Attempt Failed!");
+    console.log("Trying again tomorrow.");
+    scheduleNext(new Date());
   }
+  return false;
 };
 
 // Data Storage Function
@@ -126,7 +125,7 @@ const storeData = async () => {
     if (err) {
       console.error(err);
     } else {
-      console.log("Data stored: " + data);
+      console.log("Data stored: \n" + data);
     }
   });
 };

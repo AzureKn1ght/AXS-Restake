@@ -79,53 +79,50 @@ const main = async () => {
     console.log("RON Balance: " + ethers.utils.formatEther(balance));
     let claimsExists = false;
 
-    RONCompound();
+    try {
+      // get stored values from file
+      const storedData = JSON.parse(fs.readFileSync("./claims.json"));
 
-    // try {
-    //   // get stored values from file
-    //   const storedData = JSON.parse(fs.readFileSync("./claims.json"));
+      // not first launch, check data
+      if ("nextClaim" in storedData) {
+        const nextClaim = new Date(storedData.nextClaim);
+        const currentDate = new Date();
 
-    //   // not first launch, check data
-    //   if ("nextRestake" in storedData) {
-    //     const nextRestake = new Date(storedData.nextRestake);
-    //     const currentDate = new Date();
+        // restore claims schedule
+        if (nextClaim > currentDate) {
+          console.log("Restored Claim: " + nextClaim);
+          scheduler.scheduleJob(nextClaim, RONCompound);
+          claimsExists = true;
+        }
+      }
+    } catch (error) {
+      console.error(error);
+    }
 
-    //     // restore restake schedule
-    //     if (nextRestake > currentDate) {
-    //       console.log("Restored Restake: " + nextRestake);
-    //       scheduler.scheduleJob(nextRestake, restake);
-    //       claimsExists = true;
-    //     }
-    //   }
-    // } catch (error) {
-    //   console.error(error);
-    // }
-
-    // no previous launch data detected
-    // if (!claimsExists) {
-    //   const firstLaunch = await restake();
-
-    //   // launch failed schedule reattempt
-    //   if (!firstLaunch) {
-    //     console.log("Launch Restake Failed!");
-    //     console.log("Trying again tomorrow");
-    //     scheduleNext(new Date());
-    //   }
-    // }
+    //no previous launch
+    if (!claimsExists) {
+      RONCompound();
+    }
   } catch (error) {
     console.error(error);
   }
 };
 
-// AXS Compound Function
+// RON Compound Function
 const RONCompound = async () => {
-  //const balance = await claimRONrewards();
-  //const swapped = await swapRONforAXS(balance);
+  try {
+    // claim RON rewards and swap for AXS
+    const balance = await claimRONrewards();
+    const swapped = await swapRONforAXS(balance);
 
-  const swapped = true;
-  if (swapped) {
-    stakeAXStokens();
+    // stake the swapped AXS tokens
+    if (swapped) {
+      return await stakeAXStokens();
+    }
+  } catch (error) {
+    console.error(error);
   }
+  return false;
 };
 
 // Stake Function
@@ -145,7 +142,7 @@ const stakeAXStokens = async () => {
       gasLimit: Math.floor(randomGas),
     };
 
-    // execute the AXS staking transaction
+    // execute AXS staking transaction
     console.log("Staking AXS Tokens...");
     const stake = await stakingContract.stake(balance, overrideOptions);
     const receipt = await stake.wait();
@@ -180,7 +177,6 @@ const swapRONforAXS = async (amount) => {
     const amountIn = ethers.utils.parseEther(amount.toString());
     const result = await katanaRouter.getAmountsOut(amountIn, path);
     const amountOut = Number(ethers.utils.formatEther(result[2])) * 0.99;
-    console.log(`Swapping: ${amount} RON, For: ${amountOut} AXS`);
     const amountOutMin = ethers.utils.parseEther(amountOut.toString());
     const deadline = Date.now() + 1000 * 60 * 5;
 
@@ -192,7 +188,8 @@ const swapRONforAXS = async (amount) => {
     };
 
     // execute the RON swapping transaction
-    const claim = await katanaRouter.swapExactRONForTokens(
+    console.log(`Swapping: ${amount} RON, For: ~ ${amountOut} AXS`);
+    const swap = await katanaRouter.swapExactRONForTokens(
       amountOutMin,
       path,
       WALLET_ADDRESS,
@@ -201,9 +198,8 @@ const swapRONforAXS = async (amount) => {
     );
 
     // wait for transaction to complete
-    const receipt = await claim.wait();
+    const receipt = await swap.wait();
     if (receipt) {
-      claims.previousClaim = new Date().toString();
       console.log("RON SWAP SUCCESSFUL");
       return true;
     }
@@ -230,25 +226,32 @@ const claimRONrewards = async () => {
     if (receipt) {
       claims.previousClaim = new Date().toString();
       console.log("RON CLAIM SUCCESSFUL");
-
       let balance = await provider.getBalance(WALLET_ADDRESS);
       balance = ethers.utils.formatEther(balance);
       console.log("RON Balance: " + balance);
+
+      // claim successful schedule next
+      scheduleNext(new Date());
       return balance;
     }
   } catch (error) {
     console.error(error);
+
+    // claims failed trying again tomorrow
+    console.log("Claims Attempt Failed!");
+    console.log("Trying again tomorrow.");
+    scheduleNext(new Date());
   }
   return false;
 };
 
 // Job Scheduler Function
 const scheduleNext = async (nextDate) => {
-  // set the next restake time (24hrs, 1min, 30sec from now)
+  // set next (24hrs, 1min, 30sec from now)
   nextDate.setHours(nextDate.getHours() + 24);
   nextDate.setMinutes(nextDate.getMinutes() + 1);
   nextDate.setSeconds(nextDate.getSeconds() + 30);
-  restakes.nextRestake = nextDate.toString();
+  claims.nextClaim = nextDate.toString();
   console.log("Next Claim: " + nextDate);
 
   // schedule next restake
