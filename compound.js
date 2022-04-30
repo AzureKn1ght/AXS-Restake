@@ -1,4 +1,3 @@
-// Use either this or compound.js not both
 const scheduler = require("node-schedule");
 const { ethers } = require("ethers");
 const figlet = require("figlet");
@@ -11,10 +10,10 @@ const WALLET_ADDRESS = process.env.USER_ADDRESS;
 const USER_AGENT = process.env.USER_AGENT;
 const PRIV_KEY = process.env.USER_PRIVATE_KEY;
 
-// State storage object for restakes
-var restakes = {
-  previousRestake: "",
-  nextRestake: "",
+// State storage object for compounds
+var compounds = {
+  previousCompound: "",
+  nextCompound: "",
 };
 
 // Initialize ethers components
@@ -38,6 +37,15 @@ const contract = new ethers.Contract(contractAddress, stakingABI, provider);
 const wallet = new ethers.Wallet(PRIV_KEY, provider);
 const connectedContract = contract.connect(wallet);
 
+
+// ALGORITHM
+// 1. Claim pending AXS rewards
+// 2. Swap half into SLP tokens
+// 3. Swap other half into WETH
+// 4. Add tokens to the LP Pool
+// 5. Stake LP tokens into farm
+
+
 // Main Function
 const main = async () => {
   try {
@@ -59,17 +67,17 @@ const main = async () => {
 
     try {
       // get stored values from file
-      const storedData = JSON.parse(fs.readFileSync("./restakes.json"));
+      const storedData = JSON.parse(fs.readFileSync("./compounds.json"));
 
       // not first launch, check data
-      if ("nextRestake" in storedData) {
-        const nextRestake = new Date(storedData.nextRestake);
+      if ("nextCompound" in storedData) {
+        const nextCompound = new Date(storedData.nextCompound);
         const currentDate = new Date();
 
         // restore restake schedule
-        if (nextRestake > currentDate) {
-          console.log("Restored Restake: " + nextRestake);
-          scheduler.scheduleJob(nextRestake, restake);
+        if (nextCompound > currentDate) {
+          console.log("Restored Restake: " + nextCompound);
+          scheduler.scheduleJob(nextCompound, restake);
           restakeExists = true;
         }
       }
@@ -102,7 +110,7 @@ const restake = async () => {
     // wait for transaction to complete
     if (receipt) {
       // restake successful schedule next
-      restakes.previousRestake = new Date().toString();
+      compounds.previousCompound = new Date().toString();
       console.log("RESTAKE SUCCESSFUL");
       scheduleNext(new Date());
 
@@ -121,8 +129,8 @@ const restake = async () => {
 
 // Data Storage Function
 const storeData = async () => {
-  const data = JSON.stringify(restakes);
-  fs.writeFile("./restakes.json", data, (err) => {
+  const data = JSON.stringify(compounds);
+  fs.writeFile("./compounds.json", data, (err) => {
     if (err) {
       console.error(err);
     } else {
@@ -137,7 +145,7 @@ const scheduleNext = async (nextDate) => {
   nextDate.setHours(nextDate.getHours() + 24);
   nextDate.setMinutes(nextDate.getMinutes() + 1);
   nextDate.setSeconds(nextDate.getSeconds() + 30);
-  restakes.nextRestake = nextDate.toString();
+  compounds.nextCompound = nextDate.toString();
   console.log("Next Restake: " + nextDate);
 
   // schedule next restake
