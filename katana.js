@@ -10,7 +10,7 @@ const WALLET_ADDRESS = process.env.USER_ADDRESS;
 const USER_AGENT = process.env.USER_AGENT;
 const PRIV_KEY = process.env.USER_PRIVATE_KEY;
 
-// State storage object for restakes
+// State storage object for claims
 var claims = {
   previousClaim: "",
   nextClaim: "",
