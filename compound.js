@@ -93,7 +93,7 @@ const main = async () => {
   //   console.error(error);
   // }
   console.log(getRandomGas(400000, 500000));
-  //claimAXSrewards();
+  //stakeLPintoFarm(1);
 };
 
 // AXS Compound Function
