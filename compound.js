@@ -93,7 +93,7 @@ const main = async () => {
   //   console.error(error);
   // }
   console.log(getRandomGas(400000, 500000));
-  claimAXSrewards();
+  //claimAXSrewards();
 };
 
 // AXS Compound Function
@@ -118,46 +118,8 @@ const AXSCompound = async () => {
   return false;
 };
 
-// Stake Function
-const stakeLPintoFarm = async () => {
-  try {
-    // get current AXS balance
-    const balance = await axsContract.balanceOf(WALLET_ADDRESS);
-    const formattedBal = ethers.utils.formatEther(balance);
-    console.log("AXS Balance: " + formattedBal);
-
-    // reject staking if too small
-    if (formattedBal < 0.01) throw "Staking value too small!";
-
-    // set random gasLimit to avoid detection
-    const randomGas = 400000 + (Math.random() * (99999 - 10000) + 10000);
-    const overrideOptions = {
-      gasLimit: Math.floor(randomGas),
-    };
-
-    // execute AXS staking transaction
-    console.log("Staking AXS Tokens...");
-    const stake = await stakingContract.stake(balance, overrideOptions);
-    const receipt = await stake.wait();
-
-    // wait for transaction to complete
-    if (receipt) {
-      console.log("AXS STAKE SUCCESSFUL");
-      const ronBal = await provider.getBalance(WALLET_ADDRESS);
-      console.log("RON Balance: " + ethers.utils.formatEther(ronBal));
-      const axsBal = await axsContract.balanceOf(WALLET_ADDRESS);
-      console.log("AXS Balance: " + ethers.utils.formatEther(axsBal));
-
-      return true;
-    }
-  } catch (error) {
-    console.error(error);
-  }
-  return false;
-};
-
 // Swap Function
-const addRewardstoLP = async (amount) => {
+const addRewardstoLP = async (axsBalance) => {
   // Function:addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256)
   // Arguments:
   // [0]-[_tokenA]: 0xa8754b9fa15fc18bb59458815510e40a12cd2014
@@ -168,6 +130,14 @@ const addRewardstoLP = async (amount) => {
   // [5]-[_amountBMin]: 17711949488661258
   // [6]-[_to]: 0x881e1143f253d9a3e9fa1836294f65700ce21246
   // [7]-[_deadline]: 1651314566
+
+  // ALGORITHM
+  // 1. Claim pending AXS rewards [DONE]
+  //  2a. Swap half into SLP tokens
+  //  2b. Swap other half into WETH
+  //  2c. Add tokens to the LP Pool
+  // 3. Stake LP tokens into farm
+
   try {
     // cannot swap if too small
     if (amount < 0.04) throw "Conversion value too small!";
@@ -212,12 +182,21 @@ const addRewardstoLP = async (amount) => {
   return false;
 };
 
-// Swaps Function (cannot be done)
+// Function:swapExactTokensForTokens(uint256,uint256,address[],address,uint256)
+// Arguments:
+// [0]-[_amountIn]: 4083
+// [1]-[_amountOutMin]: 17672354712425148
+// [2]-[_path]: ["0xa8754b9fa15fc18bb59458815510e40a12cd2014","0xc99a6a985ed2cac1ef41640596c5a5f9f4e19ef5"]
+// [3]-[_to]: 0x881e1143f253d9a3e9fa1836294f65700ce21246
+// [4]-[_deadline]: 1651314539
+
+// Swaps Function
 const swapExactTokensForTokens = async (amountIn, path) => {
   try {
     // calculate input variables
     const amtInFormatted = ethers.utils.formatEther(amountIn);
     const result = await katanaRouter.getAmountsOut(amountIn, path);
+    console.log(result); //to remove
     const amountOut = Number(ethers.utils.formatEther(result.at(-1))) * 0.99;
     const amountOutMin = ethers.utils.parseEther(amountOut.toString());
     const deadline = Date.now() + 1000 * 60 * 5;
@@ -247,6 +226,30 @@ const swapExactTokensForTokens = async (amountIn, path) => {
     const receipt = await swap.wait();
     if (receipt) {
       console.log("TOKEN SWAP SUCCESSFUL");
+      return true;
+    }
+  } catch (error) {
+    console.error(error);
+  }
+  return false;
+};
+
+// Stake Function
+const stakeLPintoFarm = async (LPtokenBal) => {
+  try {
+    // set random gasLimit
+    const overrideOptions = {
+      gasLimit: getRandomGas(400000, 500000),
+    };
+
+    // execute AXS staking transaction
+    console.log("Staking LP Tokens...");
+    const stake = await slpFarmContract.stake(LPtokenBal, overrideOptions);
+    const receipt = await stake.wait();
+
+    // wait for transaction to complete
+    if (receipt) {
+      console.log("LP STAKE SUCCESSFUL");
       return true;
     }
   } catch (error) {
