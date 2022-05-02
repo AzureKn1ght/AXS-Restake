@@ -43,25 +43,6 @@ const katanaDEX_ABI = [
   "function addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256)",
 ];
 
-// Function:swapExactTokensForTokens(uint256,uint256,address[],address,uint256)
-// Arguments:
-// [0]-[_amountIn]: 4083
-// [1]-[_amountOutMin]: 17672354712425148
-// [2]-[_path]: ["0xa8754b9fa15fc18bb59458815510e40a12cd2014","0xc99a6a985ed2cac1ef41640596c5a5f9f4e19ef5"]
-// [3]-[_to]: 0x881e1143f253d9a3e9fa1836294f65700ce21246
-// [4]-[_deadline]: 1651314539
-
-// Function:addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256)
-// Arguments:
-// [0]-[_tokenA]: 0xa8754b9fa15fc18bb59458815510e40a12cd2014
-// [1]-[_tokenB]: 0xc99a6a985ed2cac1ef41640596c5a5f9f4e19ef5
-// [2]-[_amountADesired]: 4080
-// [3]-[_amountBDesired]: 17800954259961063
-// [4]-[_amountAMin]: 4059
-// [5]-[_amountBMin]: 17711949488661258
-// [6]-[_to]: 0x881e1143f253d9a3e9fa1836294f65700ce21246
-// [7]-[_deadline]: 1651314566
-
 // Setup wallet and contract connections
 const wallet = new ethers.Wallet(PRIV_KEY, provider);
 const axsContract = new ethers.Contract(AXS, erc20ABI, provider);
@@ -111,6 +92,8 @@ const main = async () => {
   // } catch (error) {
   //   console.error(error);
   // }
+  console.log(getRandomGas(400000, 500000));
+  claimAXSrewards();
 };
 
 // AXS Compound Function
@@ -175,6 +158,16 @@ const stakeLPintoFarm = async () => {
 
 // Swap Function
 const addRewardstoLP = async (amount) => {
+  // Function:addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256)
+  // Arguments:
+  // [0]-[_tokenA]: 0xa8754b9fa15fc18bb59458815510e40a12cd2014
+  // [1]-[_tokenB]: 0xc99a6a985ed2cac1ef41640596c5a5f9f4e19ef5
+  // [2]-[_amountADesired]: 4080
+  // [3]-[_amountBDesired]: 17800954259961063
+  // [4]-[_amountAMin]: 4059
+  // [5]-[_amountBMin]: 17711949488661258
+  // [6]-[_to]: 0x881e1143f253d9a3e9fa1836294f65700ce21246
+  // [7]-[_deadline]: 1651314566
   try {
     // cannot swap if too small
     if (amount < 0.04) throw "Conversion value too small!";
@@ -219,37 +212,78 @@ const addRewardstoLP = async (amount) => {
   return false;
 };
 
-// Claims Function
-const claimAXSrewards = async () => {
+// Swaps Function (cannot be done)
+const swapExactTokensForTokens = async (amountIn, path) => {
   try {
-    // set random gasLimit to avoid detection
-    const randomGas = 400000 + (Math.random() * (99999 - 10000) + 10000);
+    // calculate input variables
+    const amtInFormatted = ethers.utils.formatEther(amountIn);
+    const result = await katanaRouter.getAmountsOut(amountIn, path);
+    const amountOut = Number(ethers.utils.formatEther(result.at(-1))) * 0.99;
+    const amountOutMin = ethers.utils.parseEther(amountOut.toString());
+    const deadline = Date.now() + 1000 * 60 * 5;
+
+    // console log the details
+    console.log("Swapping Tokens...");
+    console.log("Path: " + path);
+    console.log("Amount In: " + amtInFormatted);
+    console.log("Amount Out: " + amountOut);
+
+    // set random gasLimit
     const overrideOptions = {
-      gasLimit: Math.floor(randomGas),
+      gasLimit: getRandomGas(400000, 500000),
     };
 
-    // execute the RON claiming transaction
-    const claim = await claimsContract.claimPendingRewards(overrideOptions);
-    const receipt = await claim.wait();
+    // execute the swapping transaction
+    const swap = await katanaRouter.swapExactTokensForTokens(
+      amountIn,
+      amountOutMin,
+      path,
+      WALLET_ADDRESS,
+      deadline,
+      overrideOptions
+    );
 
     // wait for transaction to complete
+    const receipt = await swap.wait();
     if (receipt) {
-      restakes.previousRestake = new Date().toString();
-      console.log("RON CLAIM SUCCESSFUL");
-      let balance = await provider.getBalance(WALLET_ADDRESS);
-      balance = ethers.utils.formatEther(balance);
-      console.log("RON Balance: " + balance);
-
-      // claim successful schedule next
-      scheduleNext(new Date());
-      return balance;
+      console.log("TOKEN SWAP SUCCESSFUL");
+      return true;
     }
   } catch (error) {
     console.error(error);
+  }
+  return false;
+};
 
-    // claims failed trying again tomorrow
+// Claims Function
+const claimAXSrewards = async () => {
+  try {
+    // set random gasLimit
+    const overrideOptions = {
+      gasLimit: getRandomGas(400000, 500000),
+    };
+
+    // execute the AXS claiming transaction
+    const claim = await axsRewardsContract.claimPendingRewards(overrideOptions);
+    const receipt = await claim.wait();
+
+    // wait for the transaction to complete
+    if (receipt) {
+      restakes.previousRestake = new Date().toString();
+      console.log("AXS CLAIM SUCCESSFUL");
+      const axsBal = await axsContract.balanceOf(WALLET_ADDRESS);
+      console.log("AXS Balance: " + ethers.utils.formatEther(axsBal));
+
+      // schedule next claim
+      scheduleNext(new Date());
+      return axsBal;
+    }
+  } catch (error) {
+    console.error(error);
     console.log("Claims Attempt Failed!");
     console.log("Trying again tomorrow.");
+
+    // claims failed try again tomorrow
     scheduleNext(new Date());
   }
   return false;
@@ -280,6 +314,16 @@ const storeData = async () => {
       console.log("Data stored: \n" + data);
     }
   });
+};
+
+// Generate random GAS Function
+const getRandomGas = (min, max) => {
+  try {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  } catch (error) {
+    console.error(error);
+  }
+  return max;
 };
 
 main();
