@@ -38,9 +38,9 @@ const slpStakerABI = ["function stake(uint256)"];
 const axsStakerABI = ["function claimPendingRewards()"];
 const erc20ABI = ["function balanceOf(address) view returns (uint256)"];
 const lpABI = [
-  "function getReserves() external view returns (uint112, uint112, uint32);",
-  "function token0() external view returns (address);",
-  "function token1() external view returns (address);",
+  "function getReserves() external view returns (uint112, uint112, uint32)",
+  "function token0() external view returns (address)",
+  "function token1() external view returns (address)",
 ].concat(erc20ABI);
 const katanaDEX_ABI = [
   "function getAmountsOut(uint, address[]) public view returns (uint[])",
@@ -53,7 +53,6 @@ const wallet = new ethers.Wallet(PRIV_KEY, provider);
 const axsContract = new ethers.Contract(AXS, erc20ABI, provider);
 const slpContract = new ethers.Contract(SLP, erc20ABI, provider);
 const lpContract = new ethers.Contract(LPtoken, lpABI, provider);
-const wethContract = new ethers.Contract(WETH, erc20ABI, provider);
 const katanaRouter = new ethers.Contract(katanaDEX, katanaDEX_ABI, wallet);
 const slpFarmContract = new ethers.Contract(slpStaker, slpStakerABI, wallet);
 const axsRewardsContract = new ethers.Contract(axsStaker, axsStakerABI, wallet);
@@ -100,17 +99,24 @@ const main = async () => {
   //   console.error(error);
   // }
   console.log(getRandomGas(400000, 500000));
-  //stakeLPintoFarm(1);
+
+  // const lpBal = await lpContract.balanceOf(WALLET_ADDRESS);
+  // console.log("LP Balance: " + ethers.utils.formatEther(lpBal));
+  // stakeLPintoFarm(lpBal);
+
+  // const axsBal = await axsContract.balanceOf(WALLET_ADDRESS);
+  // console.log("AXS Balance: " + ethers.utils.formatEther(axsBal));
+  // addRewardstoLP(axsBal);
 };
 
 // AXS Compound Function
 const AXSCompound = async () => {
   // ALGORITHM
-  // 1. Claim pending AXS rewards
-  //  2a. Swap half into SLP tokens
-  //  2b. Swap other half into WETH
-  //  2c. Add tokens to the LP Pool
-  // 3. Stake LP tokens into farm
+  // 1. Claim pending AXS rewards [DONE]
+  //  2a. Swap half into SLP tokens [DONE]
+  //  2b. Swap other half into WETH [DONE]
+  //  2c. Add tokens to the LP Pool [DONE]
+  // 3. Stake LP tokens into farm [DONE]
 
   try {
     // claim AXS rewards and swap to create LP
@@ -125,7 +131,7 @@ const AXSCompound = async () => {
   return false;
 };
 
-// Swap Function
+// Create LP Function
 const addRewardstoLP = async (axsBalance) => {
   try {
     // calculate amount to swap for SLP
@@ -140,6 +146,7 @@ const addRewardstoLP = async (axsBalance) => {
     const formattedAmt = ethers.utils.formatEther(amountForWETH);
     console.log(`Amount for WETH: ${formattedAmt} AXS`);
 
+    // Might want to reconsider if there is AXS residue
     // swap half to WETH first
     const WETHpath = [AXS, WETH];
     const swapWETH = await swapExactTokensForTokens(amountForWETH, WETHpath);
@@ -159,13 +166,13 @@ const addRewardstoLP = async (axsBalance) => {
       // amount of SLP to add to pool
       const slpAmt = await slpContract.balanceOf(WALLET_ADDRESS);
       console.log("SLP Amount: " + ethers.utils.formatEther(slpAmt));
-      const slpAmtMin = slpAmt.mul(0.99);
+      const slpAmtMin = slpAmt; //slpAmt.sub(slpAmt.mul(99).div(100));
 
       // amonut of WETH to add to pool
       const LPreserves = await getReserves();
       const wethAmt = quoteAmount(slpAmt, LPreserves);
       console.log("WETH Amount: " + ethers.utils.formatEther(wethAmt));
-      const wethAmtMin = wethAmt.mul(0.99);
+      const wethAmtMin = wethAmt.sub(wethAmt.mul(99).div(100));
 
       // set gasLimit
       const overrideOptions = {
@@ -191,14 +198,14 @@ const addRewardstoLP = async (axsBalance) => {
       if (receipt) {
         console.log("ADD LIQUIDITY SUCCESSFUL");
 
-        // get LP token balance
+        // get current LP token balance of wallet
         const lpBal = await lpContract.balanceOf(WALLET_ADDRESS);
         console.log("LP Tokens: " + ethers.utils.formatEther(lpBal));
 
         return lpBal;
       }
     } else {
-      throw new Error("Swap process failed");
+      throw "Swap process failed";
     }
   } catch (error) {
     console.error(error);
@@ -253,9 +260,9 @@ const swapExactTokensForTokens = async (amountIn, path) => {
     // calculate input variables
     const amtInFormatted = ethers.utils.formatEther(amountIn);
     const result = await katanaRouter.getAmountsOut(amountIn, path);
-    console.log(result); //to remove
-    const amountOut = Number(ethers.utils.formatEther(result.at(-1))) * 0.99;
-    const amountOutMin = ethers.utils.parseEther(amountOut.toString());
+    const expectedAmt = result[result.length - 1];
+    const amountOutMin = expectedAmt.sub(expectedAmt.mul(99).div(100));
+    const amountOut = ethers.utils.formatEther(amountOutMin);
     const deadline = Date.now() + 1000 * 60 * 5;
 
     // console log the details
@@ -293,13 +300,6 @@ const swapExactTokensForTokens = async (amountIn, path) => {
 
 // Stake Function
 const stakeLPintoFarm = async (LPtokenBal) => {
-  // ALGORITHM
-  // 1. Claim pending AXS rewards [DONE]
-  //  2a. Swap half into SLP tokens [DONE]
-  //  2b. Swap other half into WETH [DONE]
-  //  2c. Add tokens to the LP Pool [DONE]
-  // 3. Stake LP tokens into farm
-
   try {
     // set random gasLimit
     const overrideOptions = {
