@@ -1,5 +1,5 @@
 const scheduler = require("node-schedule");
-const { ethers } = require("ethers");
+const { ethers, BigNumber } = require("ethers");
 const figlet = require("figlet");
 require("dotenv").config();
 const fs = require("fs");
@@ -28,6 +28,7 @@ const provider = new ethers.getDefaultProvider(
 const AXS = "0x97a9107c1793bc407d6f527b77e7fff4d812bece";
 const SLP = "0xa8754b9fa15fc18bb59458815510e40a12cd2014";
 const WETH = "0xc99a6a985ed2cac1ef41640596c5a5f9f4e19ef5";
+const LPtoken = "0x306a28279d04a47468ed83d55088d0dcd1369294";
 const katanaDEX = "0x7d0556d55ca1a92708681e2e231733ebd922597d";
 const axsStaker = "0x05b0bb3c1c320b280501b86706c3551995bc8571";
 const slpStaker = "0xd4640c26c1a31cd632d8ae1a96fe5ac135d1eb52";
@@ -38,7 +39,6 @@ const axsStakerABI = ["function claimPendingRewards()"];
 const erc20ABI = ["function balanceOf(address) view returns (uint256)"];
 const katanaDEX_ABI = [
   "function getAmountsOut(uint, address[]) public view returns (uint[])",
-  "function swapExactRONForTokens(uint256, address[], address, uint256) payable",
   "function swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
   "function addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256)",
 ];
@@ -47,6 +47,7 @@ const katanaDEX_ABI = [
 const wallet = new ethers.Wallet(PRIV_KEY, provider);
 const axsContract = new ethers.Contract(AXS, erc20ABI, provider);
 const slpContract = new ethers.Contract(SLP, erc20ABI, provider);
+const lpContract = new ethers.Contract(LPtoken, erc20ABI, provider);
 const katanaRouter = new ethers.Contract(katanaDEX, katanaDEX_ABI, wallet);
 const slpFarmContract = new ethers.Contract(slpStaker, slpStakerABI, wallet);
 const axsRewardsContract = new ethers.Contract(axsStaker, axsStakerABI, wallet);
@@ -120,17 +121,6 @@ const AXSCompound = async () => {
 
 // Swap Function
 const addRewardstoLP = async (axsBalance) => {
-  // Function:addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256)
-  // Arguments:
-  // [0]-[_tokenA]: 0xa8754b9fa15fc18bb59458815510e40a12cd2014
-  // [1]-[_tokenB]: 0xc99a6a985ed2cac1ef41640596c5a5f9f4e19ef5
-  // [2]-[_amountADesired]: 4080
-  // [3]-[_amountBDesired]: 17800954259961063
-  // [4]-[_amountAMin]: 4059
-  // [5]-[_amountBMin]: 17711949488661258
-  // [6]-[_to]: 0x881e1143f253d9a3e9fa1836294f65700ce21246
-  // [7]-[_deadline]: 1651314566
-
   // ALGORITHM
   // 1. Claim pending AXS rewards [DONE]
   //  2a. Swap half into SLP tokens
@@ -139,12 +129,33 @@ const addRewardstoLP = async (axsBalance) => {
   // 3. Stake LP tokens into farm
 
   try {
-    // cannot swap if too small
-    if (amount < 0.04) throw "Conversion value too small!";
+    // calculate amount to swap for SLP
+    axsBalance = BigNumber.from(axsBalance);
+    const formattedBal = Number(ethers.utils.formatEther(axsBalance));
+    let amountForSLP = Math.floor((formattedBal / 2) * 1000) / 1000;
+    console.log(`Amount for SLP: ${amountForSLP} AXS`);
 
-    // save 0.02 for gas
-    amount = amount - 0.02;
-    const path = [WRON, WETH, AXS];
+    // calculate amount to swap for WETH
+    amountForSLP = ethers.utils.parseEther(amountForSLP.toString());
+    const amountForWETH = axsBalance.sub(amountForSLP);
+    const formattedAmt = ethers.utils.formatEther(amountForWETH);
+    console.log(`Amount for WETH: ${formattedAmt} AXS`);
+
+    // swap half to WETH first
+    const WETHpath = [AXS, WETH];
+    const swapWETH = await swapExactTokensForTokens(amountForWETH, WETHpath);
+    let swapSLP = false;
+
+    // swap other half to SLP
+    if (swapWETH) {
+      const SLPpath = [AXS, WETH, SLP];
+      swapSLP = await swapExactTokensForTokens(amountForSLP, SLPpath);
+    }
+
+    // check to make sure the swaps are done
+    if(!swapWETH || !swapSLP) throw "Swpping process has failed.";
+    // use if don't use throw
+
 
     // calculate input variables
     const amountIn = ethers.utils.parseEther(amount.toString());
@@ -236,6 +247,16 @@ const swapExactTokensForTokens = async (amountIn, path) => {
 
 // Stake Function
 const stakeLPintoFarm = async (LPtokenBal) => {
+  // Function:addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256)
+  // Arguments:
+  // [0]-[_tokenA]: 0xa8754b9fa15fc18bb59458815510e40a12cd2014
+  // [1]-[_tokenB]: 0xc99a6a985ed2cac1ef41640596c5a5f9f4e19ef5
+  // [2]-[_amountADesired]: 4080
+  // [3]-[_amountBDesired]: 17800954259961063
+  // [4]-[_amountAMin]: 4059
+  // [5]-[_amountBMin]: 17711949488661258
+  // [6]-[_to]: 0x881e1143f253d9a3e9fa1836294f65700ce21246
+  // [7]-[_deadline]: 1651314566
   try {
     // set random gasLimit
     const overrideOptions = {

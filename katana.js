@@ -169,8 +169,15 @@ const swapRONforAXS = async (amount) => {
     // cannot swap if too small
     if (amount < 0.04) throw "Conversion value too small!";
 
-    // save 0.02 for gas
-    amount = amount - 0.02;
+    // set gasLimit and value amount
+    const randomGas = Math.floor(Math.random() * (500000 - 400001) + 400000);
+    const overrideOptions = {
+      gasLimit: randomGas,
+      value: amountIn,
+    };
+
+    // save some RON tokens for gas
+    amount = amount - 0.02 - ethers.utils.formatEther(randomGas);
     const path = [WRON, WETH, AXS];
 
     // calculate input variables
@@ -179,13 +186,6 @@ const swapRONforAXS = async (amount) => {
     const amountOut = Number(ethers.utils.formatEther(result[2])) * 0.99;
     const amountOutMin = ethers.utils.parseEther(amountOut.toString());
     const deadline = Date.now() + 1000 * 60 * 5;
-
-    // set gasLimit and value amount
-    const randomGas = 400000 + (Math.random() * (99999 - 10000) + 10000);
-    const overrideOptions = {
-      gasLimit: Math.floor(randomGas),
-      value: amountIn,
-    };
 
     // execute the RON swapping transaction
     console.log(`Swapping: ${amount} RON, For: ~ ${amountOut} AXS`);
