@@ -155,40 +155,70 @@ const addRewardstoLP = async (axsBalance) => {
     if (swapWETH && swapSLP) {
       // swaps successful, print balances
       console.log("Both Swaps Successful");
-      const slpBal = await slpContract.balanceOf(WALLET_ADDRESS);
-      const wethBal = await wethContract.balanceOf(WALLET_ADDRESS);
-      console.log("SLP Balance: " + ethers.utils.formatEther(slpBal));
-      console.log("WETH Balance: " + ethers.utils.formatEther(wethBal));
 
-      // get the LP reserves values
+      // amount of SLP to add to pool
+      const slpAmt = await slpContract.balanceOf(WALLET_ADDRESS);
+      console.log("SLP Amount: " + ethers.utils.formatEther(slpAmt));
+      const slpAmtMin = slpAmt.mul(0.99);
+
+      // amonut of WETH to add to pool
       const LPreserves = await getReserves();
-      console.log(LPreserves.slpBalance);
+      const wethAmt = quoteAmount(slpAmt, LPreserves);
+      console.log("WETH Amount: " + ethers.utils.formatEther(wethAmt));
+      const wethAmtMin = wethAmt.mul(0.99);
 
-      // ALGORITHM
-      // 1. Claim pending AXS rewards [DONE]
-      //  2a. Swap half into SLP tokens [DONE]
-      //  2b. Swap other half into WETH [DONE]
-      //  2c. Add tokens to the LP Pool
-      // 3. Stake LP tokens into farm
+      // set gasLimit
+      const overrideOptions = {
+        gasLimit: getRandomGas(400000, 500000),
+      };
 
-      // add tokens to LP pool
-      // Function:addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256)
-      // Arguments:
-      // [0]-[_tokenA]: 0xa8754b9fa15fc18bb59458815510e40a12cd2014
-      // [1]-[_tokenB]: 0xc99a6a985ed2cac1ef41640596c5a5f9f4e19ef5
-      // [2]-[_amountADesired]: 4080
-      // [3]-[_amountBDesired]: 17800954259961063
-      // [4]-[_amountAMin]: 4059
-      // [5]-[_amountBMin]: 17711949488661258
-      // [6]-[_to]: 0x881e1143f253d9a3e9fa1836294f65700ce21246
-      // [7]-[_deadline]: 1651314566
+      // add amounts into liquidity pool
+      const deadline = Date.now() + 1000 * 60 * 5;
+      const addLiquidity = await katanaRouter.addLiquidity(
+        SLP,
+        WETH,
+        slpAmt,
+        wethAmt,
+        slpAmtMin,
+        wethAmtMin,
+        WALLET_ADDRESS,
+        deadline,
+        overrideOptions
+      );
 
-      // return LP token balance
+      // wait for the transaction to complete
+      const receipt = await addLiquidity.wait();
+      if (receipt) {
+        console.log("ADD LIQUIDITY SUCCESSFUL");
+
+        // get LP token balance
+        const lpBal = await lpContract.balanceOf(WALLET_ADDRESS);
+        console.log("LP Tokens: " + ethers.utils.formatEther(lpBal));
+
+        return lpBal;
+      }
     } else {
       throw new Error("Swap process failed");
     }
   } catch (error) {
     console.error(error);
+  }
+  return false;
+};
+
+// Quote Function
+const quoteAmount = (slpAmt, LPreserves) => {
+  try {
+    // Calculate the quote
+    slpAmt = BigInt(slpAmt);
+    const slpReserves = BigInt(LPreserves.slpBalance);
+    const wethReserves = BigInt(LPreserves.wethBalance);
+    const wethAmt = (slpAmt * wethReserves) / slpReserves;
+
+    return BigNumber.from(wethAmt);
+  } catch (error) {
+    console.error(error);
+    console.log("Failed to get quotes.");
   }
   return false;
 };
@@ -263,6 +293,13 @@ const swapExactTokensForTokens = async (amountIn, path) => {
 
 // Stake Function
 const stakeLPintoFarm = async (LPtokenBal) => {
+  // ALGORITHM
+  // 1. Claim pending AXS rewards [DONE]
+  //  2a. Swap half into SLP tokens [DONE]
+  //  2b. Swap other half into WETH [DONE]
+  //  2c. Add tokens to the LP Pool [DONE]
+  // 3. Stake LP tokens into farm
+
   try {
     // set random gasLimit
     const overrideOptions = {
