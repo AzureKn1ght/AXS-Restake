@@ -37,6 +37,11 @@ const slpStaker = "0xd4640c26c1a31cd632d8ae1a96fe5ac135d1eb52";
 const slpStakerABI = ["function stake(uint256)"];
 const axsStakerABI = ["function claimPendingRewards()"];
 const erc20ABI = ["function balanceOf(address) view returns (uint256)"];
+const lpABI = [
+  "function getReserves() external view returns (uint112, uint112, uint32);",
+  "function token0() external view returns (address);",
+  "function token1() external view returns (address);",
+].concat(erc20ABI);
 const katanaDEX_ABI = [
   "function getAmountsOut(uint, address[]) public view returns (uint[])",
   "function swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
@@ -47,7 +52,8 @@ const katanaDEX_ABI = [
 const wallet = new ethers.Wallet(PRIV_KEY, provider);
 const axsContract = new ethers.Contract(AXS, erc20ABI, provider);
 const slpContract = new ethers.Contract(SLP, erc20ABI, provider);
-const lpContract = new ethers.Contract(LPtoken, erc20ABI, provider);
+const lpContract = new ethers.Contract(LPtoken, lpABI, provider);
+const wethContract = new ethers.Contract(WETH, erc20ABI, provider);
 const katanaRouter = new ethers.Contract(katanaDEX, katanaDEX_ABI, wallet);
 const slpFarmContract = new ethers.Contract(slpStaker, slpStakerABI, wallet);
 const axsRewardsContract = new ethers.Contract(axsStaker, axsStakerABI, wallet);
@@ -121,13 +127,6 @@ const AXSCompound = async () => {
 
 // Swap Function
 const addRewardstoLP = async (axsBalance) => {
-  // ALGORITHM
-  // 1. Claim pending AXS rewards [DONE]
-  //  2a. Swap half into SLP tokens
-  //  2b. Swap other half into WETH
-  //  2c. Add tokens to the LP Pool
-  // 3. Stake LP tokens into farm
-
   try {
     // calculate amount to swap for SLP
     axsBalance = BigNumber.from(axsBalance);
@@ -146,46 +145,47 @@ const addRewardstoLP = async (axsBalance) => {
     const swapWETH = await swapExactTokensForTokens(amountForWETH, WETHpath);
     let swapSLP = false;
 
-    // swap other half to SLP
+    // swap other half for SLP
     if (swapWETH) {
       const SLPpath = [AXS, WETH, SLP];
       swapSLP = await swapExactTokensForTokens(amountForSLP, SLPpath);
     }
 
-    // check to make sure the swaps are done
-    if(!swapWETH || !swapSLP) throw "Swpping process has failed.";
-    // use if don't use throw
+    // swaps are both done
+    if (swapWETH && swapSLP) {
+      // swaps successful, print balances
+      console.log("Both Swaps Successful");
+      const slpBal = await slpContract.balanceOf(WALLET_ADDRESS);
+      const wethBal = await wethContract.balanceOf(WALLET_ADDRESS);
+      console.log("SLP Balance: " + ethers.utils.formatEther(slpBal));
+      console.log("WETH Balance: " + ethers.utils.formatEther(wethBal));
 
+      // get the LP reserves values
+      const LPreserves = await getReserves();
+      console.log(LPreserves.slpBalance);
 
-    // calculate input variables
-    const amountIn = ethers.utils.parseEther(amount.toString());
-    const result = await katanaRouter.getAmountsOut(amountIn, path);
-    const amountOut = Number(ethers.utils.formatEther(result[2])) * 0.99;
-    const amountOutMin = ethers.utils.parseEther(amountOut.toString());
-    const deadline = Date.now() + 1000 * 60 * 5;
+      // ALGORITHM
+      // 1. Claim pending AXS rewards [DONE]
+      //  2a. Swap half into SLP tokens [DONE]
+      //  2b. Swap other half into WETH [DONE]
+      //  2c. Add tokens to the LP Pool
+      // 3. Stake LP tokens into farm
 
-    // set gasLimit and value amount
-    const randomGas = 400000 + (Math.random() * (99999 - 10000) + 10000);
-    const overrideOptions = {
-      gasLimit: Math.floor(randomGas),
-      value: amountIn,
-    };
+      // add tokens to LP pool
+      // Function:addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256)
+      // Arguments:
+      // [0]-[_tokenA]: 0xa8754b9fa15fc18bb59458815510e40a12cd2014
+      // [1]-[_tokenB]: 0xc99a6a985ed2cac1ef41640596c5a5f9f4e19ef5
+      // [2]-[_amountADesired]: 4080
+      // [3]-[_amountBDesired]: 17800954259961063
+      // [4]-[_amountAMin]: 4059
+      // [5]-[_amountBMin]: 17711949488661258
+      // [6]-[_to]: 0x881e1143f253d9a3e9fa1836294f65700ce21246
+      // [7]-[_deadline]: 1651314566
 
-    // execute the RON swapping transaction
-    console.log(`Swapping: ${amount} RON, For: ~ ${amountOut} AXS`);
-    const swap = await katanaRouter.swapExactRONForTokens(
-      amountOutMin,
-      path,
-      WALLET_ADDRESS,
-      deadline,
-      overrideOptions
-    );
-
-    // wait for transaction to complete
-    const receipt = await swap.wait();
-    if (receipt) {
-      console.log("RON SWAP SUCCESSFUL");
-      return true;
+      // return LP token balance
+    } else {
+      throw new Error("Swap process failed");
     }
   } catch (error) {
     console.error(error);
@@ -193,13 +193,29 @@ const addRewardstoLP = async (axsBalance) => {
   return false;
 };
 
-// Function:swapExactTokensForTokens(uint256,uint256,address[],address,uint256)
-// Arguments:
-// [0]-[_amountIn]: 4083
-// [1]-[_amountOutMin]: 17672354712425148
-// [2]-[_path]: ["0xa8754b9fa15fc18bb59458815510e40a12cd2014","0xc99a6a985ed2cac1ef41640596c5a5f9f4e19ef5"]
-// [3]-[_to]: 0x881e1143f253d9a3e9fa1836294f65700ce21246
-// [4]-[_deadline]: 1651314539
+// Get Reserves Function
+const getReserves = async () => {
+  try {
+    // get the LP reserves values
+    const LPreserves = await lpContract.getReserves();
+    const token0 = await lpContract.token0();
+
+    // assign values based on address
+    let balances = { slpBalance: 0, wethBalance: 0 };
+    if (SLP.toLowerCase() === token0.toLowerCase()) {
+      balances.slpBalance = LPreserves[0];
+      balances.wethBalance = LPreserves[1];
+    } else {
+      balances.slpBalance = LPreserves[1];
+      balances.wethBalance = LPreserves[0];
+    }
+
+    return balances;
+  } catch (error) {
+    console.error(error);
+  }
+  return false;
+};
 
 // Swaps Function
 const swapExactTokensForTokens = async (amountIn, path) => {
@@ -247,16 +263,6 @@ const swapExactTokensForTokens = async (amountIn, path) => {
 
 // Stake Function
 const stakeLPintoFarm = async (LPtokenBal) => {
-  // Function:addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256)
-  // Arguments:
-  // [0]-[_tokenA]: 0xa8754b9fa15fc18bb59458815510e40a12cd2014
-  // [1]-[_tokenB]: 0xc99a6a985ed2cac1ef41640596c5a5f9f4e19ef5
-  // [2]-[_amountADesired]: 4080
-  // [3]-[_amountBDesired]: 17800954259961063
-  // [4]-[_amountAMin]: 4059
-  // [5]-[_amountBMin]: 17711949488661258
-  // [6]-[_to]: 0x881e1143f253d9a3e9fa1836294f65700ce21246
-  // [7]-[_deadline]: 1651314566
   try {
     // set random gasLimit
     const overrideOptions = {
