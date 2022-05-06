@@ -1,5 +1,5 @@
-const scheduler = require("node-schedule");
 const { ethers, BigNumber } = require("ethers");
+const scheduler = require("node-schedule");
 const figlet = require("figlet");
 require("dotenv").config();
 const fs = require("fs");
@@ -59,65 +59,49 @@ const axsRewardsContract = new ethers.Contract(axsStaker, axsStakerABI, wallet);
 
 // Main Function
 const main = async () => {
-  // try {
-  //   // hello world
-  //   console.log(
-  //     figlet.textSync("AXSCompound", {
-  //       font: "Standard",
-  //       horizontalLayout: "default",
-  //       verticalLayout: "default",
-  //       width: 80,
-  //       whitespaceBreak: true,
-  //     })
-  //   );
-  //   // current ronin balance
-  //   const balance = await provider.getBalance(WALLET_ADDRESS);
-  //   console.log("RON Balance: " + ethers.utils.formatEther(balance));
-  //   let claimsExists = false;
-  //   try {
-  //     // get stored values from file
-  //     const storedData = JSON.parse(fs.readFileSync("./restakes.json"));
-  //     // not first launch, check data
-  //     if ("nextRestake" in storedData) {
-  //       const nextRestake = new Date(storedData.nextRestake);
-  //       const currentDate = new Date();
-  //       // restore claims schedule
-  //       if (nextRestake > currentDate) {
-  //         console.log("Restored Claim: " + nextRestake);
-  //         scheduler.scheduleJob(nextRestake, AXSCompound);
-  //         claimsExists = true;
-  //       }
-  //     }
-  //   } catch (error) {
-  //     console.error(error);
-  //   }
-  //   //no previous launch
-  //   if (!claimsExists) {
-  //     AXSCompound();
-  //   }
-  // } catch (error) {
-  //   console.error(error);
-  // }
-  console.log(getRandomGas(400000, 500000));
-
-  // const lpBal = await lpContract.balanceOf(WALLET_ADDRESS);
-  // console.log("LP Balance: " + ethers.utils.formatEther(lpBal));
-  // stakeLPintoFarm(lpBal);
-
-  // const axsBal = await axsContract.balanceOf(WALLET_ADDRESS);
-  // console.log("AXS Balance: " + ethers.utils.formatEther(axsBal));
-  // addRewardstoLP(axsBal);
+  try {
+    // hello world
+    console.log(
+      figlet.textSync("AXSCompound", {
+        font: "Standard",
+        horizontalLayout: "default",
+        verticalLayout: "default",
+        width: 80,
+        whitespaceBreak: true,
+      })
+    );
+    // current ronin balance
+    const balance = await provider.getBalance(WALLET_ADDRESS);
+    console.log("RON Balance: " + ethers.utils.formatEther(balance));
+    let claimsExists = false;
+    try {
+      // get stored values from file
+      const storedData = JSON.parse(fs.readFileSync("./restakes.json"));
+      // not first launch, check data
+      if ("nextRestake" in storedData) {
+        const nextRestake = new Date(storedData.nextRestake);
+        const currentDate = new Date();
+        // restore claims schedule
+        if (nextRestake > currentDate) {
+          console.log("Restored Claim: " + nextRestake);
+          scheduler.scheduleJob(nextRestake, AXSCompound);
+          claimsExists = true;
+        }
+      }
+    } catch (error) {
+      console.error(error);
+    }
+    //no previous launch
+    if (!claimsExists) {
+      AXSCompound();
+    }
+  } catch (error) {
+    console.error(error);
+  }
 };
 
 // AXS Compound Function
 const AXSCompound = async () => {
-  // ALGORITHM
-  // 1. Claim pending AXS rewards [DONE]
-  //  2a. Swap half into SLP tokens [DONE]
-  //  2b. Swap other half into WETH [DONE]
-  //  2c. Add tokens to the LP Pool [DONE]
-  // 3. Stake LP tokens into farm [DONE]
-
   try {
     // claim AXS rewards and swap to create LP
     const axsBalance = await claimAXSrewards();
