@@ -139,7 +139,7 @@ const addRewardstoLP = async (axsBalance) => {
     // swap other half for SLP
     if (swapWETH) {
       const SLPpath = [AXS, WETH, SLP];
-      swapSLP = await swapExactTokensForTokens(amountForSLP, SLPpath);
+      swapSLP = await swapExactTokensForTokens(amountForSLP, SLPpath, "SLP");
     }
 
     // swaps are both done
@@ -239,15 +239,25 @@ const getReserves = async () => {
 };
 
 // Swaps Function
-const swapExactTokensForTokens = async (amountIn, path) => {
+const swapExactTokensForTokens = async (amountIn, path, mode) => {
   try {
-    // calculate input variables
+    // get amount out from katana router
     const amtInFormatted = ethers.utils.formatEther(amountIn);
     const result = await katanaRouter.getAmountsOut(amountIn, path);
     const expectedAmt = result[result.length - 1];
-    const amountOutMin = expectedAmt.sub(expectedAmt.mul(99).div(100));
-    const amountOut = ethers.utils.formatEther(amountOutMin);
     const deadline = Date.now() + 1000 * 60 * 5;
+    let amountOutMin, amountOut;
+
+    // calculate input variables
+    if (mode.toUpperCase() === "SLP") {
+      // calculate 1% slippage amount for SLP
+      amountOut = Math.floor(Number(expectedAmt) * 0.99);
+      amountOutMin = BigNumber.from(amountOut);
+    } else {
+      // calculate 1% slippage for other ERC20
+      amountOutMin = expectedAmt.sub(expectedAmt.div(100));
+      amountOut = ethers.utils.formatEther(amountOutMin);
+    }
 
     // console log the details
     console.log("Swapping Tokens...");
