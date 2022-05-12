@@ -245,7 +245,7 @@ const swapExactTokensForTokens = async (amountIn, path, mode) => {
     const amtInFormatted = ethers.utils.formatEther(amountIn);
     const result = await katanaRouter.getAmountsOut(amountIn, path);
     const expectedAmt = result[result.length - 1];
-    const deadline = Date.now() + 1000 * 60 * 5;
+    const deadline = Date.now() + 1000 * 60 * 8;
     let amountOutMin, amountOut;
 
     // calculate input variables
