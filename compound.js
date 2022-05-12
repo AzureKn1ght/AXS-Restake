@@ -249,7 +249,7 @@ const swapExactTokensForTokens = async (amountIn, path, mode) => {
     let amountOutMin, amountOut;
 
     // calculate input variables
-    if (mode.toUpperCase() === "SLP") {
+    if (mode === "SLP") {
       // calculate 1% slippage amount for SLP
       amountOut = Math.floor(Number(expectedAmt) * 0.99);
       amountOutMin = BigNumber.from(amountOut);
