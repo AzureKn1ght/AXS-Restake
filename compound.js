@@ -147,14 +147,14 @@ const addRewardstoLP = async (axsBalance) => {
 
       // amount of SLP to add to pool
       const slpAmt = await slpContract.balanceOf(WALLET_ADDRESS);
-      console.log("SLP Amount: " + ethers.utils.formatEther(slpAmt));
       const slpAmtMin = BigNumber.from(Math.floor(Number(slpAmt) * 0.99));
+      console.log("SLP Amount: " + slpAmtMin);
 
       // amonut of WETH to add to pool
       const LPreserves = await getReserves();
       const wethAmt = quoteAmount(slpAmt, LPreserves);
       const wethAmtMin = wethAmt.sub(wethAmt.div(100));
-      console.log("WETH Amount: " + ethers.utils.formatEther(wethAmt));
+      console.log("WETH Amount: " + ethers.utils.formatEther(wethAmtMin));
 
       // set gasLimit
       const overrideOptions = {
