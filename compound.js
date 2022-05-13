@@ -130,7 +130,6 @@ const addRewardstoLP = async (axsBalance) => {
     const formattedAmt = ethers.utils.formatEther(amountForWETH);
     console.log(`Amount for WETH: ${formattedAmt} AXS`);
 
-    // Might want to reconsider if there is AXS residue
     // swap half to WETH first
     const WETHpath = [AXS, WETH];
     const swapWETH = await swapExactTokensForTokens(amountForWETH, WETHpath);
@@ -144,19 +143,18 @@ const addRewardstoLP = async (axsBalance) => {
 
     // swaps are both done
     if (swapWETH && swapSLP) {
-      // swaps successful, print balances
       console.log("Both Swaps Successful");
 
       // amount of SLP to add to pool
       const slpAmt = await slpContract.balanceOf(WALLET_ADDRESS);
       console.log("SLP Amount: " + ethers.utils.formatEther(slpAmt));
-      const slpAmtMin = slpAmt; //slpAmt.sub(slpAmt.mul(99).div(100));
+      const slpAmtMin = BigNumber.from(Math.floor(Number(slpAmt) * 0.99));
 
       // amonut of WETH to add to pool
       const LPreserves = await getReserves();
       const wethAmt = quoteAmount(slpAmt, LPreserves);
+      const wethAmtMin = wethAmt.sub(wethAmt.div(100));
       console.log("WETH Amount: " + ethers.utils.formatEther(wethAmt));
-      const wethAmtMin = wethAmt.sub(wethAmt.mul(99).div(100));
 
       // set gasLimit
       const overrideOptions = {
@@ -164,7 +162,7 @@ const addRewardstoLP = async (axsBalance) => {
       };
 
       // add amounts into liquidity pool
-      const deadline = Date.now() + 1000 * 60 * 5;
+      const deadline = Date.now() + 1000 * 60 * 8;
       const addLiquidity = await katanaRouter.addLiquidity(
         SLP,
         WETH,
