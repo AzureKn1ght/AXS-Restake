@@ -1,3 +1,12 @@
+/*
+- Strategy 2 - 
+This strategy involves claiming the rewards (AXS tokens) and swapping the AXS tokens to RON and WETH to create LP tokens and deposit the LP tokens into the farm on the Katana DEX for RON rewards, thereby compounding the daily yields. 
+
+From: https://stake.axieinfinity.com/ 
+To: https://katana.roninchain.com/#/farm
+*/
+
+// Import required node modules
 const { ethers, BigNumber } = require("ethers");
 const scheduler = require("node-schedule");
 const figlet = require("figlet");
@@ -26,35 +35,35 @@ const provider = new ethers.getDefaultProvider(
 
 // All relevant addresses needed
 const AXS = "0x97a9107c1793bc407d6f527b77e7fff4d812bece";
-const SLP = "0xa8754b9fa15fc18bb59458815510e40a12cd2014";
 const WETH = "0xc99a6a985ed2cac1ef41640596c5a5f9f4e19ef5";
-const LPtoken = "0x306a28279d04a47468ed83d55088d0dcd1369294";
+const WRON = "0xe514d9deb7966c8be0ca922de8a064264ea6bcd4";
+const LPtoken = "0x2ecb08f87f075b5769fe543d0e52e40140575ea7";
 const katanaDEX = "0x7d0556d55ca1a92708681e2e231733ebd922597d";
 const axsStaker = "0x05b0bb3c1c320b280501b86706c3551995bc8571";
-const slpStaker = "0xd4640c26c1a31cd632d8ae1a96fe5ac135d1eb52";
+const ronStaker = "0xb9072cec557528f81dd25dc474d4d69564956e1e";
 
 // Contract ABIs
-const slpStakerABI = ["function stake(uint256)"];
+const ronStakerABI = ["function stake(uint256)"];
 const axsStakerABI = ["function claimPendingRewards()"];
 const erc20ABI = ["function balanceOf(address) view returns (uint256)"];
+const katanaDEX_ABI = [
+  "function getAmountsOut(uint, address[]) public view returns (uint[])",
+  "function swapExactTokensForRON(uint256,uint256,address[],address,uint256)",
+  "function swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
+  "function addLiquidityRON(address,uint,uint,uint,address,uint) payable",
+];
 const lpABI = [
   "function getReserves() external view returns (uint112, uint112, uint32)",
   "function token0() external view returns (address)",
   "function token1() external view returns (address)",
 ].concat(erc20ABI);
-const katanaDEX_ABI = [
-  "function getAmountsOut(uint, address[]) public view returns (uint[])",
-  "function swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
-  "function addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256)",
-];
 
 // Setup wallet and contract connections
 const wallet = new ethers.Wallet(PRIV_KEY, provider);
 const axsContract = new ethers.Contract(AXS, erc20ABI, provider);
-const slpContract = new ethers.Contract(SLP, erc20ABI, provider);
 const lpContract = new ethers.Contract(LPtoken, lpABI, provider);
 const katanaRouter = new ethers.Contract(katanaDEX, katanaDEX_ABI, wallet);
-const slpFarmContract = new ethers.Contract(slpStaker, slpStakerABI, wallet);
+const ronFarmContract = new ethers.Contract(ronStaker, ronStakerABI, wallet);
 const axsRewardsContract = new ethers.Contract(axsStaker, axsStakerABI, wallet);
 
 // Main Function
@@ -118,58 +127,60 @@ const AXSCompound = async () => {
 // Create LP Function
 const addRewardstoLP = async (axsBalance) => {
   try {
-    // calculate amount to swap for SLP
+    // calculate amount to swap for RON
     axsBalance = BigNumber.from(axsBalance);
     const formattedBal = Number(ethers.utils.formatEther(axsBalance));
-    let amountForSLP = Math.floor((formattedBal / 2) * 1000) / 1000;
-    console.log(`Amount for SLP: ${amountForSLP} AXS`);
+    let amountForRON = Math.floor((formattedBal / 2) * 1000) / 1000;
+    console.log(`Amount for RON: ${amountForRON} AXS`);
 
     // calculate amount to swap for WETH
-    amountForSLP = ethers.utils.parseEther(amountForSLP.toString());
-    const amountForWETH = axsBalance.sub(amountForSLP);
+    amountForRON = ethers.utils.parseEther(amountForRON.toString());
+    const amountForWETH = axsBalance.sub(amountForRON);
     const formattedAmt = ethers.utils.formatEther(amountForWETH);
     console.log(`Amount for WETH: ${formattedAmt} AXS`);
 
     // swap half to WETH first
     const WETHpath = [AXS, WETH];
     const swapWETH = await swapExactTokensForTokens(amountForWETH, WETHpath);
-    let swapSLP = false;
+    let swapRON = false;
 
-    // swap other half for SLP
+    // swap other half for RON
     if (swapWETH) {
-      const SLPpath = [AXS, WETH, SLP];
-      swapSLP = await swapExactTokensForTokens(amountForSLP, SLPpath, "SLP");
+      const RONpath = [AXS, WETH, WRON];
+      swapRON = await swapExactTokensForTokens(amountForRON, RONpath, "RON");
     }
 
     // swaps are both done
-    if (swapWETH && swapSLP) {
+    if (swapWETH && swapRON) {
       console.log("Both Swaps Successful");
+      const randomGas = getRandomNum(400000, 500000);
+      const keepRON = ethers.utils.parseEther("0.02");
 
-      // amount of SLP to add to pool
-      const slpAmt = await slpContract.balanceOf(WALLET_ADDRESS);
-      const slpAmtMin = BigNumber.from(Math.floor(Number(slpAmt) * 0.99));
-      console.log("SLP Amount: " + slpAmtMin);
+      // amount of RON to add to pool
+      let ronAmt = await provider.getBalance(WALLET_ADDRESS);
+      ronAmt = ronAmt.sub(keepRON).sub(randomGas);
+      const ronAmtMin = ronAmt.sub(ronAmt.div(100));
+      console.log("RON Amount: " + ethers.utils.formatEther(ronAmtMin));
 
-      // amonut of WETH to add to pool
+      // msg.value is treated as a amountRONDesired.
+      const overrideOptions = {
+        gasLimit: randomGas,
+        value: ronAmt,
+      };
+
+      // amount of WETH to add to pool
       const LPreserves = await getReserves();
-      const wethAmt = quoteAmount(slpAmt, LPreserves);
+      const wethAmt = quoteAmount(ronAmt, LPreserves);
       const wethAmtMin = wethAmt.sub(wethAmt.div(100));
       console.log("WETH Amount: " + ethers.utils.formatEther(wethAmtMin));
 
-      // set gasLimit
-      const overrideOptions = {
-        gasLimit: getRandomGas(400000, 500000),
-      };
-
       // add amounts into liquidity pool
       const deadline = Date.now() + 1000 * 60 * 8;
-      const addLiquidity = await katanaRouter.addLiquidity(
-        SLP,
+      const addLiquidity = await katanaRouter.addLiquidityRON(
         WETH,
-        slpAmt,
         wethAmt,
-        slpAmtMin,
         wethAmtMin,
+        ronAmtMin,
         WALLET_ADDRESS,
         deadline,
         overrideOptions
@@ -196,13 +207,13 @@ const addRewardstoLP = async (axsBalance) => {
 };
 
 // Quote Function
-const quoteAmount = (slpAmt, LPreserves) => {
+const quoteAmount = (ronAmt, LPreserves) => {
   try {
     // Calculate the quote
-    slpAmt = BigInt(slpAmt);
-    const slpReserves = BigInt(LPreserves.slpBalance);
+    ronAmt = BigInt(ronAmt);
+    const ronReserves = BigInt(LPreserves.ronBalance);
     const wethReserves = BigInt(LPreserves.wethBalance);
-    const wethAmt = (slpAmt * wethReserves) / slpReserves;
+    const wethAmt = (ronAmt * wethReserves) / ronReserves;
 
     return BigNumber.from(wethAmt);
   } catch (error) {
@@ -220,18 +231,19 @@ const getReserves = async () => {
     const token0 = await lpContract.token0();
 
     // assign values based on address
-    let balances = { slpBalance: 0, wethBalance: 0 };
-    if (SLP.toLowerCase() === token0.toLowerCase()) {
-      balances.slpBalance = LPreserves[0];
+    let balances = { ronBalance: 0, wethBalance: 0 };
+    if (WRON.toLowerCase() === token0.toLowerCase()) {
+      balances.ronBalance = LPreserves[0];
       balances.wethBalance = LPreserves[1];
     } else {
-      balances.slpBalance = LPreserves[1];
+      balances.ronBalance = LPreserves[1];
       balances.wethBalance = LPreserves[0];
     }
 
     return balances;
   } catch (error) {
     console.error(error);
+    console.log("Failed to get reserves.");
   }
   return false;
 };
@@ -244,39 +256,45 @@ const swapExactTokensForTokens = async (amountIn, path, mode) => {
     const result = await katanaRouter.getAmountsOut(amountIn, path);
     const expectedAmt = result[result.length - 1];
     const deadline = Date.now() + 1000 * 60 * 8;
-    let amountOutMin, amountOut;
 
-    // calculate input variables
-    if (mode === "SLP") {
-      // calculate 1% slippage amount for SLP
-      amountOut = Math.floor(Number(expectedAmt) * 0.99);
-      amountOutMin = BigNumber.from(amountOut);
-    } else {
-      // calculate 1% slippage for other ERC20
-      amountOutMin = expectedAmt.sub(expectedAmt.div(100));
-      amountOut = ethers.utils.formatEther(amountOutMin);
-    }
+    // calculate 1% slippage for ERC20 tokens
+    const amountOutMin = expectedAmt.sub(expectedAmt.div(100));
+    const amountOut = ethers.utils.formatEther(amountOutMin);
 
     // console log the details
     console.log("Swapping Tokens...");
     console.log("Path: " + path);
     console.log("Amount In: " + amtInFormatted);
     console.log("Amount Out: " + amountOut);
+    let swap;
 
     // set random gasLimit
     const overrideOptions = {
-      gasLimit: getRandomGas(400000, 500000),
+      gasLimit: getRandomNum(400000, 500000),
     };
 
-    // execute the swapping transaction
-    const swap = await katanaRouter.swapExactTokensForTokens(
-      amountIn,
-      amountOutMin,
-      path,
-      WALLET_ADDRESS,
-      deadline,
-      overrideOptions
-    );
+    // execute the swap using the appropriate function
+    if (mode === "RON") {
+      // use the swapExactTokensForRON function
+      swap = await katanaRouter.swapExactTokensForRON(
+        amountIn,
+        amountOutMin,
+        path,
+        WALLET_ADDRESS,
+        deadline,
+        overrideOptions
+      );
+    } else {
+      // use the swapExactTokensForTokens function
+      swap = await katanaRouter.swapExactTokensForTokens(
+        amountIn,
+        amountOutMin,
+        path,
+        WALLET_ADDRESS,
+        deadline,
+        overrideOptions
+      );
+    }
 
     // wait for transaction to complete
     const receipt = await swap.wait();
@@ -295,12 +313,12 @@ const stakeLPintoFarm = async (LPtokenBal) => {
   try {
     // set random gasLimit
     const overrideOptions = {
-      gasLimit: getRandomGas(400000, 500000),
+      gasLimit: getRandomNum(400000, 500000),
     };
 
     // execute AXS staking transaction
     console.log("Staking LP Tokens...");
-    const stake = await slpFarmContract.stake(LPtokenBal, overrideOptions);
+    const stake = await ronFarmContract.stake(LPtokenBal, overrideOptions);
     const receipt = await stake.wait();
 
     // wait for transaction to complete
@@ -319,7 +337,7 @@ const claimAXSrewards = async () => {
   try {
     // set random gasLimit
     const overrideOptions = {
-      gasLimit: getRandomGas(400000, 500000),
+      gasLimit: getRandomNum(400000, 500000),
     };
 
     // execute the AXS claiming transaction
@@ -350,10 +368,12 @@ const claimAXSrewards = async () => {
 
 // Job Scheduler Function
 const scheduleNext = async (nextDate) => {
-  // set next (24hrs, 1min, 30sec from now)
+  // set next job to be 24hrs from now
   nextDate.setHours(nextDate.getHours() + 24);
-  nextDate.setMinutes(nextDate.getMinutes() + 1);
-  nextDate.setSeconds(nextDate.getSeconds() + 30);
+
+  // add randomized buffer delay
+  const d = getRandomNum(21, 89);
+  nextDate.setSeconds(nextDate.getSeconds() + d);
   restakes.nextRestake = nextDate.toString();
   console.log("Next Restake: " + nextDate);
 
@@ -376,7 +396,7 @@ const storeData = async () => {
 };
 
 // Generate random GAS Function
-const getRandomGas = (min, max) => {
+const getRandomNum = (min, max) => {
   try {
     return Math.floor(Math.random() * (max - min + 1)) + min;
   } catch (error) {

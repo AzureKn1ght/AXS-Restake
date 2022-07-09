@@ -261,8 +261,8 @@ const scheduleNext = async (nextDate) => {
   nextDate.setHours(nextDate.getHours() + 24);
 
   // add randomized buffer delay
-  const i = getRandomNum(21, 89);
-  nextDate.setSeconds(nextDate.getSeconds() + i);
+  const d = getRandomNum(21, 89);
+  nextDate.setSeconds(nextDate.getSeconds() + d);
   claims.nextClaim = nextDate.toString();
   console.log("Next Claim: " + nextDate);
 
