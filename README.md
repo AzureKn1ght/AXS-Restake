@@ -1,5 +1,5 @@
 # AXS Restake
-#### Simple Bot to Restake tokens every 24h on Ronin chain. Creating compound interest with RON and AXS tokens. 
+Simple Bot to Restake tokens every 24h on Ronin chain. Creating compound interest with RON and AXS tokens. 
 ![Axie](https://theycb.files.wordpress.com/2021/06/axie_infinity_logo_2020_1.png)
 
 ## Strategy 1
