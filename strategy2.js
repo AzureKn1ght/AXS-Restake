@@ -26,12 +26,9 @@ var claims = {
 };
 
 // Initialize ethers components
-const provider = new ethers.getDefaultProvider(
-  RPC_URL,
-  (request_kwargs = {
-    headers: { "content-type": "application/json", "user-agent": USER_AGENT },
-  })
-);
+const provider = new ethers.getDefaultProvider(RPC_URL, {
+  headers: { "content-type": "application/json", "user-agent": USER_AGENT },
+});
 
 // Contract ABIs
 const stakingABI = ["function stake(uint256)"];

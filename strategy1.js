@@ -1,6 +1,6 @@
 /*
-- Strategy 2 - 
-This strategy involves claiming the rewards (AXS tokens) and swapping the AXS tokens to RON and WETH to create LP tokens and deposit the LP tokens into the farm on the Katana DEX for RON rewards, thereby compounding the daily yields. 
+- Strategy 1 - 
+This strategy involves claiming the rewards (AXS tokens) and swapping the AXS tokens to RON and WETH to create LP tokens and deposit the LP tokens into the farm on the Katana DEX for RON rewards, thereby compounding the daily RON yields. 
 
 From: https://stake.axieinfinity.com/ 
 To: https://katana.roninchain.com/#/farm
@@ -26,12 +26,9 @@ var restakes = {
 };
 
 // Initialize ethers components
-const provider = new ethers.getDefaultProvider(
-  RPC_URL,
-  (request_kwargs = {
-    headers: { "content-type": "application/json", "user-agent": USER_AGENT },
-  })
-);
+const provider = new ethers.getDefaultProvider(RPC_URL, {
+  headers: { "content-type": "application/json", "user-agent": USER_AGENT },
+});
 
 // All relevant addresses needed
 const AXS = "0x97a9107c1793bc407d6f527b77e7fff4d812bece";
@@ -79,6 +76,7 @@ const main = async () => {
         whitespaceBreak: true,
       })
     );
+
     // current ronin balance
     const balance = await provider.getBalance(WALLET_ADDRESS);
     console.log("RON Balance: " + ethers.utils.formatEther(balance));
@@ -152,7 +150,7 @@ const addRewardstoLP = async (axsBalance) => {
 
     // swaps are both done
     if (swapWETH && swapRON) {
-      console.log("Both Swaps Successful");
+      console.log("-Both Swaps Successful-");
       const randomGas = getRandomNum(400000, 500000);
       const keepRON = ethers.utils.parseEther("0.02");
 
@@ -160,7 +158,7 @@ const addRewardstoLP = async (axsBalance) => {
       let ronAmt = await provider.getBalance(WALLET_ADDRESS);
       ronAmt = ronAmt.sub(keepRON).sub(randomGas);
       const ronAmtMin = ronAmt.sub(ronAmt.div(100));
-      console.log("RON Amount: " + ethers.utils.formatEther(ronAmtMin));
+      console.log("RON Amount: " + ethers.utils.formatEther(ronAmt));
 
       // msg.value is treated as a amountRONDesired.
       const overrideOptions = {
@@ -172,7 +170,7 @@ const addRewardstoLP = async (axsBalance) => {
       const LPreserves = await getReserves();
       const wethAmt = quoteAmount(ronAmt, LPreserves);
       const wethAmtMin = wethAmt.sub(wethAmt.div(100));
-      console.log("WETH Amount: " + ethers.utils.formatEther(wethAmtMin));
+      console.log("WETH Amount: " + ethers.utils.formatEther(wethAmt));
 
       // add amounts into liquidity pool
       const deadline = Date.now() + 1000 * 60 * 8;
