@@ -136,9 +136,6 @@ const stakeAXStokens = async (balance) => {
     const formattedBal = ethers.utils.formatEther(balance);
     console.log("AXS Balance: " + formattedBal);
 
-    // reject staking if too small
-    if (formattedBal < 0.01) throw "Staking value too small!";
-
     // set random gasLimit to avoid detection
     const randomGas = getRandomNum(400000, 500000);
     const overrideOptions = {
