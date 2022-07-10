@@ -15,7 +15,7 @@ To: https://stake.axieinfinity.com/
 
 
 # ENV Variables 
-You will need to create a file called *.env* in the root directory. Copy the text in *.env.example* and fill in the variables 
+You will need to create a file called *.env* in the root directory, copy the text in *.env.example* and fill in the variables 
 
 
 # How to Run 
