@@ -8,7 +8,7 @@ From: https://stake.axieinfinity.com/ \
 To: https://katana.roninchain.com/#/farm
 
 ## Strategy 2
-This strategy involves claiming farm reward (RON tokens) and swapping the RON tokens to AXS and staking it into the AXS staking vault for AXS rewards, thereby creating a farming loop between the LP and AXS farms.
+This strategy involves claiming farm rewards (RON tokens) and swapping the RON tokens to AXS and staking it into the AXS staking vault for AXS rewards, thereby creating a farming loop between the LP and AXS farms.
 
 From: https://katana.roninchain.com/#/farm \
 To: https://stake.axieinfinity.com/
@@ -19,7 +19,7 @@ You will need to create a file called *.env* in the root directory. Copy the tex
 
 
 # How to Run 
-You could run it on your desktop just using [Node.js](https://github.com/nodejs/node) in your terminal. However, on a production environment, it is recommended to use something like [PM2](https://github.com/Unitech/pm2) to run the processes to ensure robust uptime and better manage your processes. 
+You could run it on your desktop just using [Node.js](https://github.com/nodejs/node) in your terminal. However, on a production environment, it is recommended to use something like [PM2](https://github.com/Unitech/pm2) to run the processes to ensure robust uptime and manage your processes. 
 ```
 npm install
 pm2 start strategy1.js -n "AXS"
