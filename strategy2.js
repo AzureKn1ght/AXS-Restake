@@ -118,13 +118,11 @@ const main = async () => {
 const RONCompound = async () => {
   try {
     // claim RON rewards and swap for AXS
-    const balance = await claimRONrewards();
-    const swapped = await swapRONforAXS(balance);
+    const ronBalance = await claimRONrewards();
+    const axsBalance = await swapRONforAXS(ronBalance);
 
     // stake the swapped AXS tokens
-    if (swapped) {
-      return await stakeAXStokens();
-    }
+    return stakeAXStokens(axsBalance);
   } catch (error) {
     console.error(error);
   }
@@ -132,10 +130,9 @@ const RONCompound = async () => {
 };
 
 // Stake Function
-const stakeAXStokens = async () => {
+const stakeAXStokens = async (balance) => {
   try {
-    // get current AXS balance
-    const balance = await axsContract.balanceOf(WALLET_ADDRESS);
+    // show current AXS balance
     const formattedBal = ethers.utils.formatEther(balance);
     console.log("AXS Balance: " + formattedBal);
 
@@ -145,7 +142,7 @@ const stakeAXStokens = async () => {
     // set random gasLimit to avoid detection
     const randomGas = getRandomNum(400000, 500000);
     const overrideOptions = {
-      gasLimit: Math.floor(randomGas),
+      gasLimit: randomGas,
     };
 
     // execute AXS staking transaction
@@ -172,30 +169,30 @@ const stakeAXStokens = async () => {
 // Swap Function
 const swapRONforAXS = async (amount) => {
   try {
-    // cannot swap if too small
-    if (amount < 0.04) throw "Conversion value too small!";
-
     // set gasLimit and value amount
     const randomGas = getRandomNum(400000, 500000);
+    const keepRON = ethers.utils.parseEther("0.02");
+    const path = [WRON, WETH, AXS];
 
+    // get amount out from katana router
+    const amountIn = amount.sub(keepRON).sub(randomGas);
+    const amtInFormatted = ethers.utils.formatEther(amountIn);
+    const result = await katanaRouter.getAmountsOut(amountIn, path);
+    const expectedAmt = result[result.length - 1];
+    const deadline = Date.now() + 1000 * 60 * 8;
+
+    // calculate 1% slippage for ERC20 tokens
+    const amountOutMin = expectedAmt.sub(expectedAmt.div(100));
+    const amountOut = ethers.utils.formatEther(expectedAmt);
+
+    // set transaction options
     const overrideOptions = {
       gasLimit: randomGas,
       value: amountIn,
     };
 
-    // save some RON tokens for gas
-    amount = amount - 0.02 - ethers.utils.formatEther(randomGas);
-    const path = [WRON, WETH, AXS];
-
-    // calculate input variables
-    const amountIn = ethers.utils.parseEther(amount.toString());
-    const result = await katanaRouter.getAmountsOut(amountIn, path);
-    const amountOut = Number(ethers.utils.formatEther(result[2])) * 0.99;
-    const amountOutMin = ethers.utils.parseEther(amountOut.toString());
-    const deadline = Date.now() + 1000 * 60 * 5;
-
     // execute the RON swapping transaction
-    console.log(`Swapping: ${amount} RON, For: ~ ${amountOut} AXS`);
+    console.log(`Swapping: ${amtInFormatted} RON, For: ~ ${amountOut} AXS`);
     const swap = await katanaRouter.swapExactRONForTokens(
       amountOutMin,
       path,
@@ -208,7 +205,8 @@ const swapRONforAXS = async (amount) => {
     const receipt = await swap.wait();
     if (receipt) {
       console.log("RON SWAP SUCCESSFUL");
-      return true;
+      const axsBalance = await axsContract.balanceOf(WALLET_ADDRESS);
+      return axsBalance;
     }
   } catch (error) {
     console.error(error);
@@ -233,9 +231,8 @@ const claimRONrewards = async () => {
     if (receipt) {
       claims.previousClaim = new Date().toString();
       console.log("RON CLAIM SUCCESSFUL");
-      let balance = await provider.getBalance(WALLET_ADDRESS);
-      balance = ethers.utils.formatEther(balance);
-      console.log("RON Balance: " + balance);
+      const balance = await provider.getBalance(WALLET_ADDRESS);
+      console.log("RON Balance: " + ethers.utils.formatEther(balance));
 
       // claim successful schedule next
       scheduleNext(new Date());
