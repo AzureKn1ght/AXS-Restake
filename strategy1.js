@@ -110,8 +110,14 @@ const main = async () => {
 // AXS Compound Function
 const AXSCompound = async () => {
   try {
-    // claim AXS rewards and swap to create LP
-    const axsBalance = await claimAXSrewards();
+    // resync cold connection
+    const start = await sync();
+
+    // claim AXS rewards retries if fail
+    let axsBalance = await claimAXSrewards(start);
+    if (!axsBalance) axsBalance = await claimAXSrewards();
+
+    // swap the AXS tokens and create LP
     const LPtokenBal = await addRewardstoLP(axsBalance);
 
     // stake created LP tokens to farm
@@ -362,6 +368,17 @@ const claimAXSrewards = async () => {
     scheduleNext(new Date());
   }
   return false;
+};
+
+// Sync Blockchain Functions
+const sync = async () => {
+  try {
+    const a = await provider.getTransactionCount(WALLET_ADDRESS);
+    const b = await axsRewardsContract.deployed();
+    return a + b;
+  } catch (error) {
+    console.error(error);
+  }
 };
 
 // Job Scheduler Function
