@@ -113,9 +113,11 @@ const AXSCompound = async () => {
     // resync cold connection
     const start = await sync();
 
-    // claim AXS rewards retries if fail
-    let axsBalance = await claimAXSrewards(start);
-    if (!axsBalance) axsBalance = await claimAXSrewards();
+    // claim AXS rewards, retries 3 times
+    const axsBalance = await claimAXSrewards(start);
+
+    // claims failed throw an exception
+    if (!axsBalance) throw "AXS claims failed";
 
     // swap the AXS tokens and create LP
     const LPtokenBal = await addRewardstoLP(axsBalance);
@@ -123,7 +125,9 @@ const AXSCompound = async () => {
     // stake created LP tokens to farm
     return stakeLPintoFarm(LPtokenBal);
   } catch (error) {
+    // try again tomorrow
     console.error(error);
+    scheduleNext(new Date());
   }
   return false;
 };
@@ -158,7 +162,7 @@ const addRewardstoLP = async (axsBalance) => {
     if (swapWETH && swapRON) {
       console.log("-Both Swaps Successful-");
       const randomGas = getRandomNum(400000, 500000);
-      const keepRON = ethers.utils.parseEther("0.02");
+      const keepRON = ethers.utils.parseEther("0.025");
 
       // amount of RON to add to pool
       let ronAmt = await provider.getBalance(WALLET_ADDRESS);
@@ -337,8 +341,11 @@ const stakeLPintoFarm = async (LPtokenBal) => {
 };
 
 // Claims Function
-const claimAXSrewards = async () => {
+const claimAXSrewards = async (tries) => {
   try {
+    // limit to maximum 3 tries
+    if (tries <= 3) return false;
+
     // set random gasLimit
     const overrideOptions = {
       gasLimit: getRandomNum(400000, 500000),
@@ -360,25 +367,22 @@ const claimAXSrewards = async () => {
       return axsBal;
     }
   } catch (error) {
+    // failed try again
     console.error(error);
-    console.log("Claims Attempt Failed!");
-    console.log("Trying again tomorrow.");
-
-    // claims failed try again tomorrow
-    scheduleNext(new Date());
+    console.log("Claim Attempt Failed!");
+    return await claimAXSrewards(tries++);
   }
   return false;
 };
 
-// Sync Blockchain Functions
+// Sync Blockchain Status
 const sync = async () => {
   try {
-    const a = await provider.getTransactionCount(WALLET_ADDRESS);
-    const b = await axsRewardsContract.deployed();
-    return a + b;
+    await provider.getTransactionCount(WALLET_ADDRESS);
   } catch (error) {
     console.error(error);
   }
+  return 1;
 };
 
 // Job Scheduler Function
@@ -410,7 +414,7 @@ const storeData = async () => {
   });
 };
 
-// Generate random GAS Function
+// Generate Random Num Function
 const getRandomNum = (min, max) => {
   try {
     return Math.floor(Math.random() * (max - min + 1)) + min;
