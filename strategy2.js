@@ -117,14 +117,21 @@ const main = async () => {
 // RON Compound Function
 const RONCompound = async () => {
   try {
-    // claim RON rewards and swap for AXS
-    const ronBalance = await claimRONrewards();
+    // claim RON rewards, retries 3 times
+    const ronBalance = await claimRONrewards(1);
+
+    // claims failed throw an exception
+    if (!ronBalance) throw "RON claims failed";
+
+    // swap the RON rewards for AXS tokens
     const axsBalance = await swapRONforAXS(ronBalance);
 
     // stake the swapped AXS tokens
     return stakeAXStokens(axsBalance);
   } catch (error) {
+    // try again tomorrow
     console.error(error);
+    scheduleNext(new Date());
   }
   return false;
 };
@@ -168,7 +175,7 @@ const swapRONforAXS = async (amount) => {
   try {
     // set gasLimit and value amount
     const randomGas = getRandomNum(400000, 500000);
-    const keepRON = ethers.utils.parseEther("0.02");
+    const keepRON = ethers.utils.parseEther("0.025");
     const path = [WRON, WETH, AXS];
 
     // get amount out from katana router
@@ -212,8 +219,13 @@ const swapRONforAXS = async (amount) => {
 };
 
 // Claims Function
-const claimRONrewards = async () => {
+const claimRONrewards = async (tries) => {
   try {
+    // limit to maximum 3 tries
+    if (tries > 3) return false;
+    console.log(`Try #${tries}...`);
+    console.log("Claiming RON Rewards...");
+
     // set random gasLimit to avoid detection
     const randomGas = getRandomNum(400000, 500000);
     const overrideOptions = {
@@ -236,12 +248,10 @@ const claimRONrewards = async () => {
       return balance;
     }
   } catch (error) {
+    // failed try again
     console.error(error);
-
-    // claims failed trying again tomorrow
-    console.log("Claims Attempt Failed!");
-    console.log("Trying again tomorrow.");
-    scheduleNext(new Date());
+    console.log("Claim Attempt Failed!");
+    return await claimRONrewards(++tries);
   }
   return false;
 };

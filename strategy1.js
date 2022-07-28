@@ -343,11 +343,10 @@ const stakeLPintoFarm = async (LPtokenBal) => {
 // Claims Function
 const claimAXSrewards = async (tries) => {
   try {
-    console.log("Claiming AXS Rewards...");
-
     // limit to maximum 3 tries
     if (tries > 3) return false;
     console.log(`Try #${tries}...`);
+    console.log("Claiming AXS Rewards...");
 
     // set random gasLimit
     const overrideOptions = {
