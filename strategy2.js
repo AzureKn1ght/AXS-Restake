@@ -47,24 +47,8 @@ const katanaAdd = "0x7d0556d55ca1a92708681e2e231733ebd922597d";
 const claimsAdd = "0xb9072cec557528f81dd25dc474d4d69564956e1e";
 const stakingAdd = "0x05b0bb3c1c320b280501b86706c3551995bc8571";
 
-// Setup wallet and contract connections
-const wallet = new ethers.Wallet(PRIV_KEY, provider);
-const axsContract = new ethers.Contract(AXS, erc20ABI, provider);
-const katanaRouter = new ethers.Contract(
-  katanaAdd,
-  katanaABI,
-  provider
-).connect(wallet);
-const stakingContract = new ethers.Contract(
-  stakingAdd,
-  stakingABI,
-  provider
-).connect(wallet);
-const claimsContract = new ethers.Contract(
-  claimsAdd,
-  claimsABI,
-  provider
-).connect(wallet);
+// Ethers vars for wallet and contract connections
+var wallet, axsContract, katanaRouter, stakingContract, claimsContract;
 
 // Main Function
 const main = async () => {
@@ -79,30 +63,21 @@ const main = async () => {
         whitespaceBreak: true,
       })
     );
-
-    // current ronin balance
-    const balance = await provider.getBalance(WALLET_ADDRESS);
-    console.log("RON Balance: " + ethers.utils.formatEther(balance));
     let claimsExists = false;
 
-    try {
-      // get stored values from file
-      const storedData = JSON.parse(fs.readFileSync("./claims.json"));
+    // get stored values from file
+    const storedData = JSON.parse(fs.readFileSync("./claims.json"));
 
-      // not first launch, check data
-      if ("nextClaim" in storedData) {
-        const nextClaim = new Date(storedData.nextClaim);
-        const currentDate = new Date();
+    // not first launch, check data
+    if ("nextClaim" in storedData) {
+      const nextClaim = new Date(storedData.nextClaim);
 
-        // restore claims schedule
-        if (nextClaim > currentDate) {
-          console.log("Restored Claim: " + nextClaim);
-          scheduler.scheduleJob(nextClaim, RONCompound);
-          claimsExists = true;
-        }
+      // restore claims schedule
+      if (nextClaim > new Date()) {
+        console.log("Restored Claim: " + nextClaim);
+        scheduler.scheduleJob(nextClaim, RONCompound);
+        claimsExists = true;
       }
-    } catch (error) {
-      console.error(error);
     }
 
     //no previous launch
@@ -114,9 +89,33 @@ const main = async () => {
   }
 };
 
+// Ethers vars connect
+const connect = () => {
+  wallet = new ethers.Wallet(PRIV_KEY, provider);
+  axsContract = new ethers.Contract(AXS, erc20ABI, provider);
+  katanaRouter = new ethers.Contract(katanaAdd, katanaABI, wallet);
+  stakingContract = new ethers.Contract(stakingAdd, stakingABI, wallet);
+  claimsContract = new ethers.Contract(claimsAdd, claimsABI, wallet);
+};
+
+// Ethers vars disconnect
+const disconnect = () => {
+  wallet = null;
+  axsContract = null;
+  katanaRouter = null;
+  stakingContract = null;
+  claimsContract = null;
+};
+
 // RON Compound Function
 const RONCompound = async () => {
   try {
+    // start
+    connect();
+    console.log("--- RONCompound Start ---");
+    const balance = await provider.getBalance(WALLET_ADDRESS);
+    console.log("RON Balance: " + ethers.utils.formatEther(balance));
+
     // claim RON rewards, retries 3 times
     const ronBalance = await claimRONrewards(1);
 
@@ -127,13 +126,16 @@ const RONCompound = async () => {
     const axsBalance = await swapRONforAXS(ronBalance);
 
     // stake the swapped AXS tokens
-    return stakeAXStokens(axsBalance);
+    stakeAXStokens(axsBalance);
+
+    return disconnect();
   } catch (error) {
     // try again tomorrow
     console.error(error);
     scheduleNext(new Date());
   }
-  return false;
+
+  return disconnect();
 };
 
 // Stake Function
@@ -167,6 +169,7 @@ const stakeAXStokens = async (balance) => {
   } catch (error) {
     console.error(error);
   }
+
   return false;
 };
 
@@ -215,6 +218,7 @@ const swapRONforAXS = async (amount) => {
   } catch (error) {
     console.error(error);
   }
+
   return false;
 };
 
@@ -253,6 +257,7 @@ const claimRONrewards = async (tries) => {
     console.log("Claim Attempt Failed!");
     return await claimRONrewards(++tries);
   }
+
   return false;
 };
 
@@ -262,7 +267,7 @@ const scheduleNext = async (nextDate) => {
   nextDate.setHours(nextDate.getHours() + 24);
 
   // add randomized buffer delay
-  const d = getRandomNum(21, 89);
+  const d = getRandomNum(34, 89);
   nextDate.setSeconds(nextDate.getSeconds() + d);
   claims.nextClaim = nextDate.toString();
   console.log("Next Claim: " + nextDate);

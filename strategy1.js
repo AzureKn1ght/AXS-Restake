@@ -47,7 +47,7 @@ const katanaDEX_ABI = [
   "function getAmountsOut(uint, address[]) public view returns (uint[])",
   "function swapExactTokensForRON(uint256,uint256,address[],address,uint256)",
   "function swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
-  "function addLiquidityRON(address,uint,uint,uint,address,uint) payable",
+  "function addLiquidityRON(address,uint,uint,uint,address,uint) payable returns (uint amountToken, uint amountRON, uint liquidity)",
 ];
 const lpABI = [
   "function getReserves() external view returns (uint112, uint112, uint32)",
@@ -55,13 +55,13 @@ const lpABI = [
   "function token1() external view returns (address)",
 ].concat(erc20ABI);
 
-// Setup wallet and contract connections
-const wallet = new ethers.Wallet(PRIV_KEY, provider);
-const axsContract = new ethers.Contract(AXS, erc20ABI, provider);
-const lpContract = new ethers.Contract(LPtoken, lpABI, provider);
-const katanaRouter = new ethers.Contract(katanaDEX, katanaDEX_ABI, wallet);
-const ronFarmContract = new ethers.Contract(ronStaker, ronStakerABI, wallet);
-const axsRewardsContract = new ethers.Contract(axsStaker, axsStakerABI, wallet);
+// Ethers vars
+var wallet,
+  axsContract,
+  lpContract,
+  katanaRouter,
+  ronFarmContract,
+  axsRewardsContract;
 
 // Main Function
 const main = async () => {
@@ -76,28 +76,23 @@ const main = async () => {
         whitespaceBreak: true,
       })
     );
-
-    // current ronin balance
-    const balance = await provider.getBalance(WALLET_ADDRESS);
-    console.log("RON Balance: " + ethers.utils.formatEther(balance));
     let claimsExists = false;
-    try {
-      // get stored values from file
-      const storedData = JSON.parse(fs.readFileSync("./restakes.json"));
-      // not first launch, check data
-      if ("nextRestake" in storedData) {
-        const nextRestake = new Date(storedData.nextRestake);
-        const currentDate = new Date();
-        // restore claims schedule
-        if (nextRestake > currentDate) {
-          console.log("Restored Claim: " + nextRestake);
-          scheduler.scheduleJob(nextRestake, AXSCompound);
-          claimsExists = true;
-        }
+
+    // get stored values from file
+    const storedData = JSON.parse(fs.readFileSync("./restakes.json"));
+
+    // not first launch, check data
+    if ("nextRestake" in storedData) {
+      const nextRestake = new Date(storedData.nextRestake);
+
+      // restore claims schedule
+      if (nextRestake > new Date()) {
+        console.log("Restored Claim: " + nextRestake);
+        scheduler.scheduleJob(nextRestake, AXSCompound);
+        claimsExists = true;
       }
-    } catch (error) {
-      console.error(error);
     }
+
     //no previous launch
     if (!claimsExists) {
       AXSCompound();
@@ -107,14 +102,37 @@ const main = async () => {
   }
 };
 
+// Ethers vars connect
+const connect = () => {
+  wallet = new ethers.Wallet(PRIV_KEY, provider);
+  axsContract = new ethers.Contract(AXS, erc20ABI, provider);
+  lpContract = new ethers.Contract(LPtoken, lpABI, provider);
+  katanaRouter = new ethers.Contract(katanaDEX, katanaDEX_ABI, wallet);
+  ronFarmContract = new ethers.Contract(ronStaker, ronStakerABI, wallet);
+  axsRewardsContract = new ethers.Contract(axsStaker, axsStakerABI, wallet);
+};
+
+// Ethers vars disconnect
+const disconnect = () => {
+  wallet = null;
+  axsContract = null;
+  lpContract = null;
+  katanaRouter = null;
+  ronFarmContract = null;
+  axsRewardsContract = null;
+};
+
 // AXS Compound Function
 const AXSCompound = async () => {
   try {
-    // resync cold connection
-    const start = await sync();
+    // start
+    connect();
+    console.log("--- AXSCompound Start ---");
+    const balance = await provider.getBalance(WALLET_ADDRESS);
+    console.log("RON Balance: " + ethers.utils.formatEther(balance));
 
     // claim AXS rewards, retries 3 times
-    const axsBalance = await claimAXSrewards(start);
+    const axsBalance = await claimAXSrewards(1);
 
     // claims failed throw an exception
     if (!axsBalance) throw "AXS claims failed";
@@ -123,13 +141,16 @@ const AXSCompound = async () => {
     const LPtokenBal = await addRewardstoLP(axsBalance);
 
     // stake created LP tokens to farm
-    return stakeLPintoFarm(LPtokenBal);
+    stakeLPintoFarm(LPtokenBal);
+
+    return disconnect();
   } catch (error) {
     // try again tomorrow
     console.error(error);
     scheduleNext(new Date());
   }
-  return false;
+
+  return disconnect();
 };
 
 // Create LP Function
@@ -377,23 +398,13 @@ const claimAXSrewards = async (tries) => {
   return false;
 };
 
-// Sync Blockchain Status
-const sync = async () => {
-  try {
-    await provider.getTransactionCount(WALLET_ADDRESS);
-  } catch (error) {
-    console.error(error);
-  }
-  return 1;
-};
-
 // Job Scheduler Function
 const scheduleNext = async (nextDate) => {
   // set next job to be 24hrs from now
   nextDate.setHours(nextDate.getHours() + 24);
 
   // add randomized buffer delay
-  const d = getRandomNum(21, 89);
+  const d = getRandomNum(34, 89);
   nextDate.setSeconds(nextDate.getSeconds() + d);
   restakes.nextRestake = nextDate.toString();
   console.log("Next Restake: " + nextDate);
