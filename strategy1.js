@@ -110,6 +110,7 @@ const connect = () => {
   katanaRouter = new ethers.Contract(katanaDEX, katanaDEX_ABI, wallet);
   ronFarmContract = new ethers.Contract(ronStaker, ronStakerABI, wallet);
   axsRewardsContract = new ethers.Contract(axsStaker, axsStakerABI, wallet);
+  console.log("connected.");
 };
 
 // Ethers vars disconnect
@@ -120,6 +121,7 @@ const disconnect = () => {
   katanaRouter = null;
   ronFarmContract = null;
   axsRewardsContract = null;
+  console.log("disconnected.");
 };
 
 // AXS Compound Function
@@ -141,7 +143,7 @@ const AXSCompound = async () => {
     const LPtokenBal = await addRewardstoLP(axsBalance);
 
     // stake created LP tokens to farm
-    stakeLPintoFarm(LPtokenBal);
+    await stakeLPintoFarm(LPtokenBal);
 
     return disconnect();
   } catch (error) {

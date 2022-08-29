@@ -92,10 +92,11 @@ const main = async () => {
 // Ethers vars connect
 const connect = () => {
   wallet = new ethers.Wallet(PRIV_KEY, provider);
-  axsContract = new ethers.Contract(AXS, erc20ABI, provider);
+  axsContract = new ethers.Contract(AXS, erc20ABI, wallet);
   katanaRouter = new ethers.Contract(katanaAdd, katanaABI, wallet);
   stakingContract = new ethers.Contract(stakingAdd, stakingABI, wallet);
   claimsContract = new ethers.Contract(claimsAdd, claimsABI, wallet);
+  console.log("connected.");
 };
 
 // Ethers vars disconnect
@@ -105,6 +106,7 @@ const disconnect = () => {
   katanaRouter = null;
   stakingContract = null;
   claimsContract = null;
+  console.log("disconnected.");
 };
 
 // RON Compound Function
@@ -126,7 +128,7 @@ const RONCompound = async () => {
     const axsBalance = await swapRONforAXS(ronBalance);
 
     // stake the swapped AXS tokens
-    stakeAXStokens(axsBalance);
+    await stakeAXStokens(axsBalance);
 
     return disconnect();
   } catch (error) {
