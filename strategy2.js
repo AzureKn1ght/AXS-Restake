@@ -25,11 +25,6 @@ var claims = {
   nextClaim: "",
 };
 
-// Initialize ethers components
-const provider = new ethers.getDefaultProvider(RPC_URL, {
-  headers: { "content-type": "application/json", "user-agent": USER_AGENT },
-});
-
 // Contract ABIs
 const stakingABI = ["function stake(uint256)"];
 const claimsABI = ["function claimPendingRewards()"];
@@ -48,7 +43,12 @@ const claimsAdd = "0xb9072cec557528f81dd25dc474d4d69564956e1e";
 const stakingAdd = "0x05b0bb3c1c320b280501b86706c3551995bc8571";
 
 // Ethers vars for wallet and contract connections
-var wallet, axsContract, katanaRouter, stakingContract, claimsContract;
+var wallet,
+  provider,
+  axsContract,
+  katanaRouter,
+  stakingContract,
+  claimsContract;
 
 // Main Function
 const main = async () => {
@@ -91,30 +91,43 @@ const main = async () => {
 
 // Ethers vars connect
 const connect = () => {
+  const connection = {
+    url: RPC_URL,
+    headers: {
+      "Content-Type": "application/json",
+      "User-Agent": USER_AGENT,
+      "X-Forwarded-For": randomIP(),
+    },
+  };
+
+  provider = new ethers.providers.JsonRpcProvider(connection);
+  console.log(connection);
+
   wallet = new ethers.Wallet(PRIV_KEY, provider);
   axsContract = new ethers.Contract(AXS, erc20ABI, wallet);
   katanaRouter = new ethers.Contract(katanaAdd, katanaABI, wallet);
   stakingContract = new ethers.Contract(stakingAdd, stakingABI, wallet);
   claimsContract = new ethers.Contract(claimsAdd, claimsABI, wallet);
-  console.log("connected.");
+  console.log("--> connected\n");
 };
 
 // Ethers vars disconnect
 const disconnect = () => {
+  provider = null;
   wallet = null;
   axsContract = null;
   katanaRouter = null;
   stakingContract = null;
   claimsContract = null;
-  console.log("disconnected.");
+  console.log("-disconnected-\n");
 };
 
 // RON Compound Function
 const RONCompound = async () => {
+  console.log("--- RONCompound Start ---");
   try {
     // start
     connect();
-    console.log("--- RONCompound Start ---");
     const balance = await provider.getBalance(WALLET_ADDRESS);
     console.log("RON Balance: " + ethers.utils.formatEther(balance));
 
@@ -290,6 +303,15 @@ const storeData = async () => {
       console.log("Data stored: \n" + data);
     }
   });
+};
+
+// Random IP Function
+const randomIP = () => {
+  const A = getRandomNum(100, 255);
+  const B = getRandomNum(0, 255);
+  const C = getRandomNum(0, 255);
+  const D = getRandomNum(0, 255);
+  return `${A}.${B}.${C}.${D}`;
 };
 
 // Generate random num Function
