@@ -109,8 +109,8 @@ const connect = () => {
     },
   };
 
-  provider = new ethers.providers.JsonRpcProvider(connection);
   console.log(connection);
+  provider = new ethers.providers.JsonRpcProvider(connection);
 
   wallet = new ethers.Wallet(PRIV_KEY, provider);
   axsContract = new ethers.Contract(AXS, erc20ABI, wallet);
@@ -404,6 +404,8 @@ const claimAXSrewards = async (tries) => {
     // failed try again
     console.error(error);
     console.log("Claim Attempt Failed!");
+    
+    connect(); // refresh connection
     return await claimAXSrewards(++tries);
   }
   return false;
@@ -415,7 +417,7 @@ const scheduleNext = async (nextDate) => {
   nextDate.setHours(nextDate.getHours() + 24);
 
   // add randomized buffer delay
-  const d = getRandomNum(34, 89);
+  const d = getRandomNum(89, 144);
   nextDate.setSeconds(nextDate.getSeconds() + d);
   restakes.nextRestake = nextDate.toString();
   console.log("Next Restake: " + nextDate);
