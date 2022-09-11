@@ -404,8 +404,12 @@ const claimAXSrewards = async (tries) => {
     // failed try again
     console.error(error);
     console.log("Claim Attempt Failed!");
+
+    // refresh the connection
+    console.log("reconnecting...");
+    disconnect();
+    connect(); 
     
-    connect(); // refresh connection
     return await claimAXSrewards(++tries);
   }
   return false;
@@ -416,8 +420,8 @@ const scheduleNext = async (nextDate) => {
   // set next job to be 24hrs from now
   nextDate.setHours(nextDate.getHours() + 24);
 
-  // add randomized buffer delay
-  const d = getRandomNum(89, 144);
+  // add randomized buffer delay 
+  const d = getRandomNum(144, 233);
   nextDate.setSeconds(nextDate.getSeconds() + d);
   restakes.nextRestake = nextDate.toString();
   console.log("Next Restake: " + nextDate);
