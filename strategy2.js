@@ -270,12 +270,15 @@ const claimRONrewards = async (tries) => {
     // failed try again
     console.error(error);
     console.log("Claim Attempt Failed!");
-
-    // refresh the connection
     console.log("reconnecting...");
+
+    // apply random delay
+    await delay();
+    
+    // refresh the connection
     disconnect();
     connect();
-    
+
     return await claimRONrewards(++tries);
   }
 
@@ -288,7 +291,7 @@ const scheduleNext = async (nextDate) => {
   nextDate.setHours(nextDate.getHours() + 24);
 
   // add randomized buffer delay
-  const d = getRandomNum(144, 233);
+  const d = getRandomNum(233, 377);
   nextDate.setSeconds(nextDate.getSeconds() + d);
   claims.nextClaim = nextDate.toString();
   console.log("Next Claim: " + nextDate);
@@ -328,6 +331,12 @@ const getRandomNum = (min, max) => {
     console.error(error);
   }
   return max;
+};
+
+// Random Time Delay Function
+const delay = () => {
+  const ms = getRandomNum(6765, 10946);
+  return new Promise((resolve) => setTimeout(resolve, ms));
 };
 
 main();

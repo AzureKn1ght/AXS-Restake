@@ -109,7 +109,7 @@ const connect = () => {
     },
   };
 
-  console.log(connection);
+  // new RPC connection
   provider = new ethers.providers.JsonRpcProvider(connection);
 
   wallet = new ethers.Wallet(PRIV_KEY, provider);
@@ -404,12 +404,15 @@ const claimAXSrewards = async (tries) => {
     // failed try again
     console.error(error);
     console.log("Claim Attempt Failed!");
+    console.log("reconnecting...");
+
+    // apply random delay
+    await delay();
 
     // refresh the connection
-    console.log("reconnecting...");
     disconnect();
-    connect(); 
-    
+    connect();
+
     return await claimAXSrewards(++tries);
   }
   return false;
@@ -420,8 +423,8 @@ const scheduleNext = async (nextDate) => {
   // set next job to be 24hrs from now
   nextDate.setHours(nextDate.getHours() + 24);
 
-  // add randomized buffer delay 
-  const d = getRandomNum(144, 233);
+  // add randomized buffer delay
+  const d = getRandomNum(233, 377);
   nextDate.setSeconds(nextDate.getSeconds() + d);
   restakes.nextRestake = nextDate.toString();
   console.log("Next Restake: " + nextDate);
@@ -461,6 +464,12 @@ const getRandomNum = (min, max) => {
     console.error(error);
   }
   return max;
+};
+
+// Random Time Delay Function
+const delay = () => {
+  const ms = getRandomNum(6765, 10946);
+  return new Promise((resolve) => setTimeout(resolve, ms));
 };
 
 main();
