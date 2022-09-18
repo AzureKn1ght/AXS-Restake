@@ -100,7 +100,7 @@ const connect = () => {
     },
   };
 
-  console.log(connection);
+  // new RPC connection
   provider = new ethers.providers.JsonRpcProvider(connection);
 
   wallet = new ethers.Wallet(PRIV_KEY, provider);
@@ -335,7 +335,7 @@ const getRandomNum = (min, max) => {
 
 // Random Time Delay Function
 const delay = () => {
-  const ms = getRandomNum(6765, 10946);
+  const ms = getRandomNum(75025, 121393);
   return new Promise((resolve) => setTimeout(resolve, ms));
 };
 
