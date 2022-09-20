@@ -102,6 +102,7 @@ const connect = () => {
 
   // new RPC connection
   provider = new ethers.providers.JsonRpcProvider(connection);
+  console.log(connection.headers["X-Forwarded-For"]);
 
   wallet = new ethers.Wallet(PRIV_KEY, provider);
   axsContract = new ethers.Contract(AXS, erc20ABI, wallet);
@@ -145,6 +146,8 @@ const RONCompound = async () => {
 
     return disconnect();
   } catch (error) {
+    console.log("RONCompound failed!");
+
     // try again tomorrow
     console.error(error);
     scheduleNext(new Date());
@@ -291,7 +294,7 @@ const scheduleNext = async (nextDate) => {
   nextDate.setHours(nextDate.getHours() + 24);
 
   // add randomized buffer delay
-  const d = getRandomNum(233, 377);
+  const d = getRandomNum(610, 987);
   nextDate.setSeconds(nextDate.getSeconds() + d);
   claims.nextClaim = nextDate.toString();
   console.log("Next Claim: " + nextDate);
@@ -309,7 +312,7 @@ const storeData = async () => {
     if (err) {
       console.error(err);
     } else {
-      console.log("Data stored: \n" + data);
+      console.log("Data stored: \n", claims);
     }
   });
 };
