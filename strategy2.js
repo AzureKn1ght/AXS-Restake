@@ -244,7 +244,7 @@ const swapRONforAXS = async (amount) => {
 const claimRONrewards = async (tries) => {
   try {
     // limit to maximum 3 tries
-    if (tries > 3) return false;
+    if (tries > 8) return false;
     console.log(`Try #${tries}...`);
     console.log("Claiming RON Rewards...");
 
