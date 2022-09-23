@@ -119,7 +119,9 @@ const connect = () => {
   katanaRouter = new ethers.Contract(katanaDEX, katanaDEX_ABI, wallet);
   ronFarmContract = new ethers.Contract(ronStaker, ronStakerABI, wallet);
   axsRewardsContract = new ethers.Contract(axsStaker, axsStakerABI, wallet);
+
   console.log("--> connected\n");
+  return axsRewardsContract.deployed();
 };
 
 // Ethers vars disconnect
@@ -136,7 +138,7 @@ const disconnect = () => {
 
 // AXS Compound Function
 const AXSCompound = async () => {
-  console.log("--- AXSCompound Start ---");
+  console.log("\n--- AXSCompound Start ---");
   try {
     // start
     connect();
@@ -306,7 +308,6 @@ const swapExactTokensForTokens = async (amountIn, path, mode) => {
 
     // console log the details
     console.log("Swapping Tokens...");
-    console.log("Path: " + path);
     console.log("Amount In: " + amtInFormatted);
     console.log("Amount Out: " + amountOut);
     let swap;
@@ -378,10 +379,13 @@ const stakeLPintoFarm = async (LPtokenBal) => {
 // Claims Function
 const claimAXSrewards = async (tries) => {
   try {
-    // limit to maximum 3 tries
-    if (tries > 8) return false;
+    // limit to maximum 13 tries
+    if (tries > 13) return false;
     console.log(`Try #${tries}...`);
     console.log("Claiming AXS Rewards...");
+
+    // apply delay
+    await delay();
 
     // set random gasLimit
     const overrideOptions = {
@@ -409,9 +413,6 @@ const claimAXSrewards = async (tries) => {
     console.log("Claim Attempt Failed!");
     console.log("reconnecting...");
 
-    // apply random delay
-    await delay();
-
     // refresh the connection
     disconnect();
     connect();
@@ -427,7 +428,7 @@ const scheduleNext = async (nextDate) => {
   nextDate.setHours(nextDate.getHours() + 24);
 
   // add randomized buffer delay
-  const d = getRandomNum(610, 987);
+  const d = getRandomNum(987, 1597);
   nextDate.setSeconds(nextDate.getSeconds() + d);
   restakes.nextRestake = nextDate.toString();
   console.log("Next Restake: " + nextDate);
@@ -472,6 +473,7 @@ const getRandomNum = (min, max) => {
 // Random Time Delay Function
 const delay = () => {
   const ms = getRandomNum(75025, 121393);
+  console.log(`delay(${ms})`);
   return new Promise((resolve) => setTimeout(resolve, ms));
 };
 
