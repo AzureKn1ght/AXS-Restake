@@ -36,7 +36,10 @@ const ronStaker = "0xb9072cec557528f81dd25dc474d4d69564956e1e";
 
 // Contract ABIs
 const ronStakerABI = ["function stake(uint256)"];
-const axsStakerABI = ["function claimPendingRewards()"];
+const axsStakerABI = [
+  "function claimPendingRewards()",
+  "function getPendingRewards(address) public view returns (uint256)",
+];
 const erc20ABI = ["function balanceOf(address) view returns (uint256)"];
 const katanaDEX_ABI = [
   "function getAmountsOut(uint, address[]) public view returns (uint[])",
@@ -106,12 +109,14 @@ const connect = () => {
       "Content-Type": "application/json",
       "User-Agent": USER_AGENT,
       "X-Forwarded-For": randomIP(),
+      "X-Real-Ip": randomIP(),
     },
   };
 
   // new RPC connection
   provider = new ethers.providers.JsonRpcProvider(connection);
   console.log(connection.headers["X-Forwarded-For"]);
+  console.log(connection.headers["X-Real-Ip"]);
 
   wallet = new ethers.Wallet(PRIV_KEY, provider);
   axsContract = new ethers.Contract(AXS, erc20ABI, wallet);
@@ -119,9 +124,7 @@ const connect = () => {
   katanaRouter = new ethers.Contract(katanaDEX, katanaDEX_ABI, wallet);
   ronFarmContract = new ethers.Contract(ronStaker, ronStakerABI, wallet);
   axsRewardsContract = new ethers.Contract(axsStaker, axsStakerABI, wallet);
-
   console.log("--> connected\n");
-  return axsRewardsContract.deployed();
 };
 
 // Ethers vars disconnect
@@ -380,16 +383,21 @@ const stakeLPintoFarm = async (LPtokenBal) => {
 const claimAXSrewards = async (tries) => {
   try {
     // limit to maximum 13 tries
-    if (tries > 13) return false;
+    if (tries > 8) return false;
     console.log(`Try #${tries}...`);
     console.log("Claiming AXS Rewards...");
 
     // apply delay
     await delay();
 
+    // get pending rewards amount
+    const u = await axsRewardsContract.getPendingRewards(WALLET_ADDRESS);
+    const unclaimed = ethers.utils.formatEther(u);
+    console.log(`Unclaimed Rewards: ${unclaimed} AXS`);
+
     // set random gasLimit
     const overrideOptions = {
-      gasLimit: getRandomNum(400000, 500000),
+      gasLimit: getRandomNum(317811, 514229),
     };
 
     // execute the AXS claiming transaction
@@ -428,7 +436,7 @@ const scheduleNext = async (nextDate) => {
   nextDate.setHours(nextDate.getHours() + 24);
 
   // add randomized buffer delay
-  const d = getRandomNum(987, 1597);
+  const d = getRandomNum(1597, 2584);
   nextDate.setSeconds(nextDate.getSeconds() + d);
   restakes.nextRestake = nextDate.toString();
   console.log("Next Restake: " + nextDate);
@@ -446,7 +454,7 @@ const storeData = async () => {
     if (err) {
       console.error(err);
     } else {
-      console.log("Data stored: \n", restakes);
+      console.log("Data stored:\n", restakes);
     }
   });
 };

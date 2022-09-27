@@ -27,7 +27,10 @@ var claims = {
 
 // Contract ABIs
 const stakingABI = ["function stake(uint256)"];
-const claimsABI = ["function claimPendingRewards()"];
+const claimsABI = [
+  "function claimPendingRewards()",
+  "function getPendingRewards(address) public view returns (uint256)",
+];
 const erc20ABI = ["function balanceOf(address) view returns (uint256)"];
 const katanaABI = [
   "function swapExactRONForTokens(uint256, address[], address, uint256) payable",
@@ -97,21 +100,21 @@ const connect = () => {
       "Content-Type": "application/json",
       "User-Agent": USER_AGENT,
       "X-Forwarded-For": randomIP(),
+      "X-Real-Ip": randomIP(),
     },
   };
 
   // new RPC connection
   provider = new ethers.providers.JsonRpcProvider(connection);
   console.log(connection.headers["X-Forwarded-For"]);
+  console.log(connection.headers["X-Real-Ip"]);
 
   wallet = new ethers.Wallet(PRIV_KEY, provider);
   axsContract = new ethers.Contract(AXS, erc20ABI, wallet);
   katanaRouter = new ethers.Contract(katanaAdd, katanaABI, wallet);
   stakingContract = new ethers.Contract(stakingAdd, stakingABI, wallet);
   claimsContract = new ethers.Contract(claimsAdd, claimsABI, wallet);
-  
   console.log("--> connected\n");
-  return claimsContract.deployed();
 };
 
 // Ethers vars disconnect
@@ -246,16 +249,21 @@ const swapRONforAXS = async (amount) => {
 const claimRONrewards = async (tries) => {
   try {
     // limit to maximum 13 tries
-    if (tries > 13) return false;
+    if (tries > 8) return false;
     console.log(`Try #${tries}...`);
     console.log("Claiming RON Rewards...");
 
     // apply delay
     await delay();
 
+    // get pending rewards amount
+    const u = await claimsContract.getPendingRewards(WALLET_ADDRESS);
+    const unclaimed = ethers.utils.formatEther(u);
+    console.log(`Unclaimed Rewards: ${unclaimed} RON`);
+
     // set random gasLimit
     const overrideOptions = {
-      gasLimit: getRandomNum(400000, 500000),
+      gasLimit: getRandomNum(317811, 514229),
     };
 
     // execute the RON claiming transaction
@@ -278,7 +286,7 @@ const claimRONrewards = async (tries) => {
     console.error(error);
     console.log("Claim Attempt Failed!");
     console.log("reconnecting...");
-    
+
     // refresh the connection
     disconnect();
     connect();
@@ -295,10 +303,10 @@ const scheduleNext = async (nextDate) => {
   nextDate.setHours(nextDate.getHours() + 24);
 
   // add randomized buffer delay
-  const d = getRandomNum(987, 1597);
+  const d = getRandomNum(1597, 2584);
   nextDate.setSeconds(nextDate.getSeconds() + d);
   claims.nextClaim = nextDate.toString();
-  console.log("Next Claim: " + nextDate);
+  console.log("Next Claim: ", nextDate);
 
   // schedule next restake
   scheduler.scheduleJob(nextDate, RONCompound);
@@ -313,7 +321,7 @@ const storeData = async () => {
     if (err) {
       console.error(err);
     } else {
-      console.log("Data stored: \n", claims);
+      console.log("Data stored:\n", claims);
     }
   });
 };
