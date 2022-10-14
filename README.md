@@ -28,3 +28,9 @@ pm2 start strategy2.js -n "RON"
 pm2 save
 
 ```
+
+### RON Compound
+```
+pm2 start RONcompound.js -n "RON"
+pm2 save
+```
