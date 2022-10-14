@@ -32,9 +32,10 @@ const claimsABI = [
 const katanaABI = [
   "function getAmountsOut(uint, address[]) public view returns (uint[])",
   "function swapExactRONForTokens(uint256, address[], address, uint256) payable",
+  "function addLiquidityRON(address,uint,uint,uint,address,uint) payable returns (uint amountToken, uint amountRON, uint liquidity)",
 ];
-const ronStakerABI = ["function stake(uint256)"];
 const erc20ABI = ["function balanceOf(address) view returns (uint256)"];
+const ronStakerABI = ["function stake(uint256)"];
 const lpABI = [
   "function getReserves() external view returns (uint112, uint112, uint32)",
   "function token0() external view returns (address)",
@@ -178,16 +179,12 @@ const addRewardstoLP = async (ronBalance) => {
 
     // calculate amount to swap for WETH
     ronBalance = BigNumber.from(ronBalance);
-    const gas = BigNumber.from(3 * 500000 * 10 ** 9);
-    ronBalance.sub(ethers.utils.parseEther("0.025")).sub(gas);
     const formattedBal = Number(ethers.utils.formatEther(ronBalance));
-    const amountForWETH = Math.floor((formattedBal / 2) * 100) / 100;
+    let amountForWETH = Math.floor((formattedBal / 2) * 1000) / 1000;
+    amountForWETH = ethers.utils.parseEther(amountForWETH.toString());
 
-    // swap half of the RON balance to WETH
-    const wethBal = await swapRONforWETH(amountForWETH);
-
-    // amount of WETH to add to pool, get the balance if unavailable
-    const wethAmt = wethBal || (await wethContract.balanceOf(WALLET_ADDRESS));
+    // swap half of the RON to WETH and get the balance
+    const wethAmt = await swapRONforWETH(amountForWETH);
     const wethAmtMin = wethAmt.sub(wethAmt.div(100));
 
     // amount of RON to add to pool
@@ -425,7 +422,7 @@ const storeData = async () => {
     if (err) {
       console.error(err);
     } else {
-      console.log("Data stored:\n" + claims);
+      console.log("Data stored:\n", claims);
     }
   });
 };
