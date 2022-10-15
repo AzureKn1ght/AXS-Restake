@@ -74,6 +74,9 @@ const main = async () => {
     );
     let claimsExists = false;
 
+    // check if claims file exists
+    if (!fs.existsSync("./claims.json")) await storedData();
+
     // get stored values from file
     const storedData = JSON.parse(fs.readFileSync("./claims.json"));
 
