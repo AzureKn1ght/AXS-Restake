@@ -149,7 +149,7 @@ const RONCompound = async () => {
   try {
     await connect();
 
-    // claim RON rewards, retries 13 times max
+    // claim RON rewards, retries 8 times max
     const ronBalance = await claimRONrewards(1);
 
     // claims failed throw an error exception
@@ -352,8 +352,8 @@ const swapRONforWETH = async (amount) => {
 // Claims Function
 const claimRONrewards = async (tries) => {
   try {
-    // limit to maximum 13 tries
-    if (tries > 13) return false;
+    // limit to maximum 8 tries
+    if (tries > 8) return false;
     console.log(`Try #${tries}...`);
     console.log("Claiming RON Rewards...");
 
@@ -386,15 +386,14 @@ const claimRONrewards = async (tries) => {
       return balance;
     }
   } catch (error) {
-    // failed try again
+    // failed disconnect
     console.error(error);
     console.log("Claim Attempt Failed!");
     console.log("reconnecting...");
     disconnect();
 
-    // reconnect
+    // try again...
     await connect();
-
     return await claimRONrewards(++tries);
   }
 
@@ -405,10 +404,6 @@ const claimRONrewards = async (tries) => {
 const scheduleNext = async (nextDate) => {
   // set next job to be 24hrs from now
   nextDate.setHours(nextDate.getHours() + 24);
-
-  // add randomized buffer delay
-  const d = getRandomNum(1597, 2584);
-  nextDate.setSeconds(nextDate.getSeconds() + d);
   claims.nextClaim = nextDate.toString();
   console.log("Next Claim: ", nextDate);
 
@@ -451,7 +446,7 @@ const getRandomNum = (min, max) => {
 
 // Random Time Delay Function
 const delay = () => {
-  const ms = getRandomNum(75025, 121393);
+  const ms = getRandomNum(196418, 317811);
   console.log(`delay(${ms})`);
   return new Promise((resolve) => setTimeout(resolve, ms));
 };
