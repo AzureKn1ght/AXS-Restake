@@ -25,22 +25,11 @@ var claims = {
 };
 
 // Contract ABIs
-const claimsABI = [
-  "function claimPendingRewards()",
-  "function getPendingRewards(address) public view returns (uint256)",
-];
-const katanaABI = [
-  "function getAmountsOut(uint, address[]) public view returns (uint[])",
-  "function swapExactRONForTokens(uint256, address[], address, uint256) payable",
-  "function addLiquidityRON(address,uint,uint,uint,address,uint) payable returns (uint amountToken, uint amountRON, uint liquidity)",
-];
 const erc20ABI = ["function balanceOf(address) view returns (uint256)"];
-const ronStakerABI = ["function stake(uint256)"];
-const lpABI = [
-  "function getReserves() external view returns (uint112, uint112, uint32)",
-  "function token0() external view returns (address)",
-  "function token1() external view returns (address)",
-].concat(erc20ABI);
+const lpABI = require("./ABI/liquidityPoolABI");
+const claimsABI = require("./ABI/stakingABI");
+const katanaABI = require("./ABI/katanaABI");
+const ronStakerABI = claimsABI;
 
 // All relevant addresses needed
 const WRON = "0xe514d9deb7966c8be0ca922de8a064264ea6bcd4";
@@ -150,7 +139,7 @@ const RONCompound = async () => {
     await connect();
 
     // claim RON rewards, retries 8 times max
-    const ronBalance = await claimRONrewards(1);
+    const ronBalance = await claimRONrewards();
 
     // claims failed throw an error exception
     if (!ronBalance) throw "RON claims failed";
@@ -175,10 +164,22 @@ const RONCompound = async () => {
 };
 
 // Create LP Function
-const addRewardstoLP = async (ronBalance) => {
+const addRewardstoLP = async (ronBalance, tries = 1) => {
   try {
-    // if somehow the balance did not come thru
-    if (!ronBalance) ronBalance = await provider.getBalance(WALLET_ADDRESS);
+    // limit to maximum 8 tries
+    if (tries > 8) return false;
+    console.log(`Try #${tries}...`);
+    console.log("Adding Liquidity...");
+    console.log(ronBalance);
+
+    // if there is existing weth, swap all to RON first
+    let wethBalance = await wethContract.balanceOf(WALLET_ADDRESS);
+    if (wethBalance.gt(0)) {
+      const path = [WETH, WRON];
+      const tx = await swapExactTokensForRON(wethBalance, path);
+      await tx.wait();
+    }
+    ronBalance = await provider.getBalance(WALLET_ADDRESS);
 
     // calculate amount to swap for WETH
     ronBalance = BigNumber.from(ronBalance);
@@ -228,7 +229,16 @@ const addRewardstoLP = async (ronBalance) => {
       return lpBal;
     }
   } catch (error) {
+    // failed disconnect
     console.error(error);
+    console.log("Add Liquidity Failed!");
+    console.log("reconnecting...");
+    disconnect();
+
+    // try again...
+    await delay();
+    await connect();
+    return await addRewardstoLP(ronBalance, ++tries);
   }
   return false;
 };
@@ -276,8 +286,14 @@ const getReserves = async () => {
 };
 
 // Stake Function
-const stakeLPintoFarm = async (LPtokenBal) => {
+const stakeLPintoFarm = async (LPtokenBal, tries = 1) => {
   try {
+    // limit to maximum 8 tries
+    if (tries > 8) return false;
+    console.log(`Try #${tries}...`);
+    console.log("Staking Liquidity...");
+    console.log(LPtokenBal);
+
     // if somehow the balance did not come through
     if (!LPtokenBal) LPtokenBal = await lpContract.balanceOf(WALLET_ADDRESS);
 
@@ -297,7 +313,16 @@ const stakeLPintoFarm = async (LPtokenBal) => {
       return true;
     }
   } catch (error) {
+    // failed disconnect
     console.error(error);
+    console.log("Stake Liquidity Failed!");
+    console.log("reconnecting...");
+    disconnect();
+
+    // try again...
+    await delay();
+    await connect();
+    return await stakeLPintoFarm(LPtokenBal, ++tries);
   }
   return false;
 };
@@ -349,8 +374,54 @@ const swapRONforWETH = async (amount) => {
   return false;
 };
 
+// Swaps Function
+const swapExactTokensForRON = async (amountIn, path) => {
+  try {
+    // get amount out from katana router
+    const amtInFormatted = ethers.utils.formatEther(amountIn);
+    const result = await katanaRouter.getAmountsOut(amountIn, path);
+    const expectedAmt = result[result.length - 1];
+    const deadline = Date.now() + 1000 * 60 * 8;
+
+    // calculate 1% slippage for ERC20 tokens
+    const amountOutMin = expectedAmt.sub(expectedAmt.div(100));
+    const amountOut = ethers.utils.formatEther(amountOutMin);
+
+    // console log the details
+    console.log("Swapping Tokens...");
+    console.log("Amount In: " + amtInFormatted);
+    console.log("Amount Out: " + amountOut);
+    let swap;
+
+    // set random gasLimit
+    const overrideOptions = {
+      gasLimit: getRandomNum(400000, 500000),
+    };
+
+    // execute the swap using the appropriate function
+    swap = await katanaRouter.swapExactTokensForRON(
+      amountIn,
+      amountOutMin,
+      path,
+      WALLET_ADDRESS,
+      deadline,
+      overrideOptions
+    );
+
+    // wait for transaction to complete
+    const receipt = await swap.wait();
+    if (receipt) {
+      console.log("TOKEN SWAP SUCCESSFUL");
+      return true;
+    }
+  } catch (error) {
+    console.error(error);
+  }
+  return false;
+};
+
 // Claims Function
-const claimRONrewards = async (tries) => {
+const claimRONrewards = async (tries = 1) => {
   try {
     // limit to maximum 8 tries
     if (tries > 8) return false;
