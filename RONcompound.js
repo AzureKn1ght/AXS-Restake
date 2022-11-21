@@ -8,6 +8,7 @@ URL: https://katana.roninchain.com/#/farm
 // Import required node modules
 const { ethers, BigNumber } = require("ethers");
 const scheduler = require("node-schedule");
+const nodemailer = require("nodemailer");
 const figlet = require("figlet");
 require("dotenv").config();
 const fs = require("fs");
@@ -19,6 +20,7 @@ const USER_AGENT = process.env.USER_AGENT;
 const RPC_URL = process.env.RONIN_RPC;
 
 // State storage object for claims
+var report = [];
 var claims = {
   previousClaim: "",
   nextClaim: "",
@@ -135,30 +137,40 @@ const disconnect = () => {
 // RON Compound Function
 const RONCompound = async () => {
   console.log("\n--- RONCompound Start ---");
+  report.push("--- RONCompound Report ---");
   try {
     await connect();
 
     // claim RON rewards, retries 8 times max
     const ronBalance = await claimRONrewards();
 
-    // claims failed throw an error exception
-    if (!ronBalance) throw "RON claims failed";
-
     // swap half the RON tokens and create LP
     const LPtokenBal = await addRewardstoLP(ronBalance);
 
     // stake created LP tokens to farm
-    await stakeLPintoFarm(LPtokenBal);
+    const staked = await stakeLPintoFarm(LPtokenBal);
 
-    // end connctions
-    return disconnect();
+    // function status
+    const compound = {
+      claimRONrewards: ronBalance > 0,
+      addRewardstoLP: LPtokenBal > 0,
+      stakeLPintoFarm: staked,
+    };
+
+    report.push(compound);
   } catch (error) {
-    console.log("RONCompound failed!");
+    report.push("RONCompound failed!");
+    report.push(error);
 
     // try again tomorrow
     console.error(error);
     scheduleNext(new Date());
   }
+
+  // send status update report
+  report.push({ ...claims });
+  sendReport(report);
+  report = [];
 
   return disconnect();
 };
@@ -173,7 +185,7 @@ const addRewardstoLP = async (ronBalance, tries = 1) => {
     console.log(ronBalance);
 
     // if there is existing weth, swap all to RON first
-    let wethBalance = await wethContract.balanceOf(WALLET_ADDRESS);
+    const wethBalance = await wethContract.balanceOf(WALLET_ADDRESS);
     if (wethBalance.gt(0)) {
       const path = [WETH, WRON];
       const tx = await swapExactTokensForRON(wethBalance, path);
@@ -226,6 +238,20 @@ const addRewardstoLP = async (ronBalance, tries = 1) => {
       // get current LP token balance of wallet
       const lpBal = await lpContract.balanceOf(WALLET_ADDRESS);
       console.log("LP Tokens: " + ethers.utils.formatEther(lpBal));
+      ronBalance = await provider.getBalance(WALLET_ADDRESS);
+      const formatted = ethers.utils.formatEther(ronBalance);
+
+      // push report
+      const addLiquidity = {
+        addRewardstoLP: true,
+        startingRON: formattedBal,
+        wethAmt: ethers.utils.formatEther(wethAmt),
+        ronAmt: ethers.utils.formatEther(ronAmt),
+        lpBal: ethers.utils.formatEther(lpBal),
+        endindRON: formatted,
+        tries: tries,
+      };
+      report.push(addLiquidity);
       return lpBal;
     }
   } catch (error) {
@@ -235,7 +261,7 @@ const addRewardstoLP = async (ronBalance, tries = 1) => {
     console.log("reconnecting...");
     disconnect();
 
-    // try again...
+    // try again
     await delay();
     await connect();
     return await addRewardstoLP(ronBalance, ++tries);
@@ -310,6 +336,16 @@ const stakeLPintoFarm = async (LPtokenBal, tries = 1) => {
     // wait for transaction to complete
     if (receipt) {
       console.log("LP STAKE SUCCESSFUL");
+      const balance = await lpContract.balanceOf(WALLET_ADDRESS);
+
+      // push report
+      const stake = {
+        stakeLPintoFarm: true,
+        startingLP: ethers.utils.formatEther(LPtokenBal),
+        endingLP: ethers.utils.formatEther(balance),
+        tries: tries,
+      };
+      report.push(stake);
       return true;
     }
   } catch (error) {
@@ -319,7 +355,7 @@ const stakeLPintoFarm = async (LPtokenBal, tries = 1) => {
     console.log("reconnecting...");
     disconnect();
 
-    // try again...
+    // try again
     await delay();
     await connect();
     return await stakeLPintoFarm(LPtokenBal, ++tries);
@@ -447,7 +483,17 @@ const claimRONrewards = async (tries = 1) => {
       claims.previousClaim = new Date().toString();
       console.log("RON CLAIM SUCCESSFUL");
       const balance = await provider.getBalance(WALLET_ADDRESS);
-      console.log("RON Balance: " + ethers.utils.formatEther(balance));
+      const formatted_bal = ethers.utils.formatEther(balance);
+      console.log("RON Balance: " + formatted_bal);
+
+      // push report
+      const claim = {
+        claimRONrewards: true,
+        rewardsClaimed: unclaimed,
+        ronBalance: formatted_bal,
+        tries: tries,
+      };
+      report.push(claim);
 
       // apply delay
       await delay();
@@ -470,6 +516,45 @@ const claimRONrewards = async (tries = 1) => {
   }
 
   return false;
+};
+
+// Send Report Function
+const sendReport = (report) => {
+  // get the formatted date
+  const today = todayDate();
+  console.log(report);
+
+  // configure email server
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.EMAIL_ADDR,
+      pass: process.env.EMAIL_PW,
+    },
+  });
+
+  // setup mail params
+  const mailOptions = {
+    from: process.env.EMAIL_ADDR,
+    to: process.env.RECIPIENT,
+    subject: "Ronin Report: " + today,
+    text: JSON.stringify(report, null, 2),
+  };
+
+  // send the email message
+  transporter.sendMail(mailOptions, (error, info) => {
+    if (error) {
+      console.log(error);
+    } else {
+      console.log("Email sent: " + info.response);
+    }
+  });
+};
+
+// Current Date Function
+const todayDate = () => {
+  const today = new Date();
+  return today.toLocaleString("en-GB", { timeZone: "Asia/Singapore" });
 };
 
 // Job Scheduler Function
