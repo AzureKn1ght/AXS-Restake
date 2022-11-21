@@ -428,9 +428,6 @@ const claimRONrewards = async (tries = 1) => {
     console.log(`Try #${tries}...`);
     console.log("Claiming RON Rewards...");
 
-    // apply delay
-    await delay();
-
     // get pending rewards amount
     const u = await claimsContract.getPendingRewards(WALLET_ADDRESS);
     const unclaimed = ethers.utils.formatEther(u);
@@ -452,6 +449,9 @@ const claimRONrewards = async (tries = 1) => {
       const balance = await provider.getBalance(WALLET_ADDRESS);
       console.log("RON Balance: " + ethers.utils.formatEther(balance));
 
+      // apply delay
+      await delay();
+
       // schedule next claim
       scheduleNext(new Date());
       return balance;
@@ -464,6 +464,7 @@ const claimRONrewards = async (tries = 1) => {
     disconnect();
 
     // try again...
+    await delay();
     await connect();
     return await claimRONrewards(++tries);
   }
