@@ -182,7 +182,7 @@ const addRewardstoLP = async (ronBalance, tries = 1) => {
     if (tries > 8) return false;
     console.log(`Try #${tries}...`);
     console.log("Adding Liquidity...");
-    console.log(ronBalance);
+    console.log(ronBalance.toString());
 
     // if there is existing weth, swap all to RON first
     const wethBalance = await wethContract.balanceOf(WALLET_ADDRESS);
@@ -193,8 +193,12 @@ const addRewardstoLP = async (ronBalance, tries = 1) => {
     }
     ronBalance = await provider.getBalance(WALLET_ADDRESS);
 
-    // calculate amount to swap for WETH
-    ronBalance = BigNumber.from(ronBalance);
+    // calculate RON to keep
+    const gasUsage = 1500000;
+    const keepRON = ethers.utils.parseEther("0.02");
+    ronBalance = ronBalance.sub(keepRON).sub(gasUsage);
+
+    // calculate amount of RON to be swapped for WETH
     const formattedBal = Number(ethers.utils.formatEther(ronBalance));
     let amountForWETH = Math.floor((formattedBal / 2) * 1000) / 1000;
     amountForWETH = ethers.utils.parseEther(amountForWETH.toString());
@@ -318,7 +322,7 @@ const stakeLPintoFarm = async (LPtokenBal, tries = 1) => {
     if (tries > 8) return false;
     console.log(`Try #${tries}...`);
     console.log("Staking Liquidity...");
-    console.log(LPtokenBal);
+    console.log(LPtokenBal.toString());
 
     // if somehow the balance did not come through
     if (!LPtokenBal) LPtokenBal = await lpContract.balanceOf(WALLET_ADDRESS);
