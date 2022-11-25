@@ -194,8 +194,8 @@ const addRewardstoLP = async (ronBalance, tries = 1) => {
     ronBalance = await provider.getBalance(WALLET_ADDRESS);
 
     // calculate RON to keep
-    const gasUsage = 1500000;
-    const keepRON = ethers.utils.parseEther("0.02");
+    const gasUsage = ethers.utils.parseUnits("1500000", "gwei");
+    const keepRON = ethers.utils.parseUnits("0.02", "ether");
     ronBalance = ronBalance.sub(keepRON).sub(gasUsage);
 
     // calculate amount of RON to be swapped for WETH
