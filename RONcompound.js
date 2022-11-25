@@ -499,9 +499,6 @@ const claimRONrewards = async (tries = 1) => {
       };
       report.push(claim);
 
-      // apply delay
-      await delay();
-
       // schedule next claim
       scheduleNext(new Date());
       return balance;
@@ -563,6 +560,9 @@ const todayDate = () => {
 
 // Job Scheduler Function
 const scheduleNext = async (nextDate) => {
+  // apply delay
+  await delay();
+
   // set next job to be 24hrs from now
   nextDate.setHours(nextDate.getHours() + 24);
   claims.nextClaim = nextDate.toString();
