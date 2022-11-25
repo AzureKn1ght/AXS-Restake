@@ -252,7 +252,7 @@ const addRewardstoLP = async (ronBalance, tries = 1) => {
         wethAmt: ethers.utils.formatEther(wethAmt),
         ronAmt: ethers.utils.formatEther(ronAmt),
         lpBal: ethers.utils.formatEther(lpBal),
-        endindRON: formatted,
+        endingRON: formatted,
         tries: tries,
       };
       report.push(addLiquidity);
