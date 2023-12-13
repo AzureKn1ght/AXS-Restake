@@ -1,6 +1,6 @@
 # AXS Restake
 Simple Bot to Restake tokens every 24h on Ronin chain. Creating compound interest with RON and AXS tokens. 
-![Axie Infinity](https://oganiza.com/wp-content/uploads/2021/07/https___bucketeer-e05bbc84-baa3-437e-9518-adb32be77984.s3.amazonaws.com_public_images_53c0b5af-ffd1-41fc-acbf-6e21fffd6885_1736x807-1536x714.png)
+![Axie Infinity](https://assets-global.website-files.com/606f63778ec431ec1b930f1f/6179592286d0189864185a6d_afkgaming-2021-07-1b98241e-ef6c-41a9-8593-656d27c77c85-axie_cover.jpg)
 
 ## Strategy 1
 This strategy involves claiming the rewards (AXS tokens) and swapping the AXS tokens to RON and WETH to create LP tokens and deposit the LP tokens into the farm on the Katana DEX for RON rewards, thereby compounding the daily RON yields. 
