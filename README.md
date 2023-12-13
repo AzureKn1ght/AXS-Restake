@@ -1,4 +1,4 @@
-# AXS Restake
+# Axie Restake
 ![Axie Infinity](https://assets-global.website-files.com/606f63778ec431ec1b930f1f/6179592286d0189864185a6d_afkgaming-2021-07-1b98241e-ef6c-41a9-8593-656d27c77c85-axie_cover.jpg)
 Simple Bot to Restake tokens every 24h on Ronin chain. Creating compound interest with RON and AXS tokens. 
 
