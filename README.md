@@ -31,7 +31,7 @@ pm2 save
 
 ### RON Compound
 ```
-pm2 start RONcompound.js -n "RON"
+pm2 start RoninTP.js -n "RON"
 pm2 save
 
 ```

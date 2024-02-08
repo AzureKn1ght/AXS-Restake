@@ -37,10 +37,8 @@ const ronStakerABI = claimsABI;
 const WRON = "0xe514d9deb7966c8be0ca922de8a064264ea6bcd4";
 const WETH = "0xc99a6a985ed2cac1ef41640596c5a5f9f4e19ef5";
 const USDC = "0x0b7007c13325c48911f73a2dad5fa5dcbf808adc";
-const LPtoken = "0x2ecb08f87f075b5769fe543d0e52e40140575ea7";
 const katanaAdd = "0x7d0556d55ca1a92708681e2e231733ebd922597d";
 const claimsAdd = "0xb9072cec557528f81dd25dc474d4d69564956e1e"; //For RON-WETH LP
-const ronStaker = "0xb9072cec557528f81dd25dc474d4d69564956e1e"; //For RON-WETH LP
 const usdcFarm = "0xba1c32baff8f23252259a641fd5ca0bd211d4f65"; //For RON-USDC LP
 const usdcLP = "0x4f7687affc10857fccd0938ecda0947de7ad3812"; //For RON-USDC LP
 
@@ -113,7 +111,7 @@ const connect = async () => {
   console.log(connection.headers["X-Real-Ip"]);
 
   wallet = new ethers.Wallet(PRIV_KEY, provider);
-  lpContract = new ethers.Contract(LPtoken, lpABI, wallet);
+  lpContract = new ethers.Contract(usdcLP, lpABI, wallet); //Changed this to USDC
   wethContract = new ethers.Contract(WETH, erc20ABI, wallet);
   usdcContract = new ethers.Contract(USDC, erc20ABI, wallet);
   katanaRouter = new ethers.Contract(katanaAdd, katanaABI, wallet);
@@ -188,35 +186,35 @@ const addRewardstoLP = async (ronBalance, tries = 1) => {
     console.log("Adding Liquidity...");
     console.log(ronBalance.toString());
 
-    // if there is existing weth, swap all to RON first
-    const wethBalance = await wethContract.balanceOf(WALLET_ADDRESS);
-    if (wethBalance.gt(0)) {
-      const path = [WETH, WRON];
-      const tx = await swapExactTokensForRON(wethBalance, path);
-      await tx.wait();
+    // if there is existing usdc, swap all to RON first
+    const usdcBalance = await usdcContract.balanceOf(WALLET_ADDRESS);
+    if (usdcBalance.gt(0)) {
+      const path = [USDC, WRON];
+      await swapExactTokensForRON(usdcBalance, path);
     }
     ronBalance = await provider.getBalance(WALLET_ADDRESS);
 
     // calculate RON to keep
-    const gasUsage = ethers.utils.parseUnits("1500000", "gwei");
+    const gasUsage = ethers.utils.parseUnits("2000000", "gwei");
     const keepRON = ethers.utils.parseUnits("0.02", "ether");
     ronBalance = ronBalance.sub(keepRON).sub(gasUsage);
 
-    // calculate amount of RON to be swapped for WETH
+    // calculate amount of RON to be swapped for USDC
     const formattedBal = Number(ethers.utils.formatEther(ronBalance));
-    let amountForWETH = Math.floor((formattedBal / 2) * 1000) / 1000;
-    amountForWETH = ethers.utils.parseEther(amountForWETH.toString());
+    let amountForUSDC = Math.floor((formattedBal / 2) * 1000) / 1000;
+    amountForUSDC = ethers.utils.parseEther(amountForUSDC.toString());
 
-    // swap half of the RON to WETH and get the balance
-    const wethAmt = await swapRONforWETH(amountForWETH);
-    const wethAmtMin = wethAmt.sub(wethAmt.div(100));
+    // swap half of the RON to USDC and get the balance
+    let usdcAmt = await swapRONforTokens(amountForUSDC, [WRON, USDC]);
+    usdcAmt = await usdcContract.balanceOf(WALLET_ADDRESS);
+    const usdcAmtMin = usdcAmt.sub(usdcAmt.div(100));
 
     // amount of RON to add to pool
     const LPreserves = await getReserves();
-    const ronAmt = quoteAmount(wethAmt, LPreserves);
+    const ronAmt = quoteAmount(usdcAmt, LPreserves);
     const ronAmtMin = ronAmt.sub(ronAmt.div(100));
 
-    console.log("WETH Amount: " + ethers.utils.formatEther(wethAmt));
+    console.log("USDC Amount: " + ethers.utils.formatEther(usdcAmt));
     console.log("RON Amount: " + ethers.utils.formatEther(ronAmt));
 
     // msg.value is treated as the amount desired
@@ -229,9 +227,9 @@ const addRewardstoLP = async (ronBalance, tries = 1) => {
     // add amounts into liquidity pool
     const deadline = Date.now() + 1000 * 60 * 8;
     const addLiquidity = await katanaRouter.addLiquidityRON(
-      WETH,
-      wethAmt,
-      wethAmtMin,
+      USDC,
+      usdcAmt,
+      usdcAmtMin,
       ronAmtMin,
       WALLET_ADDRESS,
       deadline,
@@ -253,7 +251,7 @@ const addRewardstoLP = async (ronBalance, tries = 1) => {
       const addLiquidity = {
         addRewardstoLP: true,
         startingRON: formattedBal,
-        wethAmt: ethers.utils.formatEther(wethAmt),
+        usdcAmt: ethers.utils.formatEther(usdcAmt),
         ronAmt: ethers.utils.formatEther(ronAmt),
         lpBal: ethers.utils.formatEther(lpBal),
         endingRON: formatted,
@@ -278,13 +276,13 @@ const addRewardstoLP = async (ronBalance, tries = 1) => {
 };
 
 // Quote Function
-const quoteAmount = (wethAmt, LPreserves) => {
+const quoteAmount = (tknAmt, LPreserves) => {
   try {
     // Calculate the quote
-    wethAmt = BigInt(wethAmt);
+    tknAmt = BigInt(tknAmt);
     const ronReserves = BigInt(LPreserves.ronBalance);
-    const wethReserves = BigInt(LPreserves.wethBalance);
-    const ronAmt = (wethAmt * ronReserves) / wethReserves;
+    const tknReserves = BigInt(LPreserves.tknBalance);
+    const ronAmt = (tknAmt * ronReserves) / tknReserves;
 
     return BigNumber.from(ronAmt);
   } catch (error) {
@@ -302,13 +300,13 @@ const getReserves = async () => {
     const token0 = await lpContract.token0();
 
     // assign values based on address
-    let balances = { ronBalance: 0, wethBalance: 0 };
+    let balances = { ronBalance: 0, tknBalance: 0 };
     if (WRON.toLowerCase() === token0.toLowerCase()) {
       balances.ronBalance = LPreserves[0];
-      balances.wethBalance = LPreserves[1];
+      balances.tknBalance = LPreserves[1];
     } else {
       balances.ronBalance = LPreserves[1];
-      balances.wethBalance = LPreserves[0];
+      balances.tknBalance = LPreserves[0];
     }
 
     return balances;
@@ -372,6 +370,51 @@ const stakeLPintoFarm = async (LPtokenBal, tries = 1) => {
 };
 
 // Swap Function
+const swapRONforTokens = async (amount, path) => {
+  try {
+    // set gasLimit and swaps path
+    const randomGas = getRandomNum(400000, 500000);
+
+    // get amount out from katana router
+    const amtInFormatted = ethers.utils.formatEther(amount);
+    const result = await katanaRouter.getAmountsOut(amount, path);
+    const expectedAmt = result[result.length - 1];
+    const deadline = Date.now() + 1000 * 60 * 8;
+
+    // calculate max 1% slippage tolerance for ERC20 tokens
+    const amountOutMin = expectedAmt.sub(expectedAmt.div(100));
+    const amountOut = ethers.utils.formatEther(expectedAmt);
+
+    // set transaction options
+    const overrideOptions = {
+      gasLimit: randomGas,
+      value: amount,
+    };
+
+    // execute the RON swapping transaction
+    console.log(`Swapping: ${amtInFormatted} RON, For: ~ ${amountOut}`);
+    const swap = await katanaRouter.swapExactRONForTokens(
+      amountOutMin,
+      path,
+      WALLET_ADDRESS,
+      deadline,
+      overrideOptions
+    );
+
+    // wait for transaction complete
+    const receipt = await swap.wait();
+    if (receipt) {
+      console.log("RON SWAP SUCCESSFUL");
+      return true;
+    }
+  } catch (error) {
+    console.error(error);
+  }
+
+  return false;
+};
+
+// Swap Function (Not Used)
 const swapRONforWETH = async (amount) => {
   try {
     // set gasLimit and swaps path
@@ -465,12 +508,97 @@ const swapExactTokensForRON = async (amountIn, path) => {
 };
 
 // Claims Function
-const claimRONrewards = async (tries = 1) => {
+const claimRONrewards = async () => {
+  try {
+    // execute claiming from the 2 farms
+    const usdcPool = await claimUSDCpool();
+    const wethPool = await claimWETHpool();
+
+    // wait transaction to complete plan next
+    claims.previousClaim = new Date().toString();
+    console.log("RON CLAIMS SUCCESSFUL");
+    const balance = await provider.getBalance(WALLET_ADDRESS);
+    const formatted_bal = ethers.utils.formatEther(balance);
+    console.log("RON Balance: " + formatted_bal);
+
+    // push report
+    const claim = {
+      claimRONrewards: true,
+      claimUSDCpool: usdcPool,
+      claimWETHpool: wethPool,
+      ronBalance: formatted_bal,
+    };
+    report.push(claim);
+
+    // schedule next claim
+    scheduleNext(new Date());
+    return balance;
+  } catch (error) {
+    // failed disconnect
+    console.error(error);
+    console.log("Claim Failed!");
+  }
+  return false;
+};
+
+// Claims Function Part 2
+const claimUSDCpool = async (tries = 1) => {
   try {
     // limit to maximum 8 tries
     if (tries > 8) return false;
     console.log(`Try #${tries}...`);
-    console.log("Claiming RON Rewards...");
+    console.log("Claiming USDC-RON Rewards...");
+
+    // get pending rewards amount
+    const u = await ronFarmContract.getPendingRewards(WALLET_ADDRESS);
+    const unclaimed = ethers.utils.formatEther(u);
+    console.log(`Unclaimed Rewards: ${unclaimed} RON`);
+
+    // set random gasLimit
+    const overrideOptions = {
+      gasLimit: getRandomNum(317811, 514229),
+    };
+
+    // execute the RON claiming transaction
+    const claim = await ronFarmContract.claimPendingRewards(overrideOptions);
+    const receipt = await claim.wait();
+
+    // wait for transaction to complete
+    if (receipt) {
+      console.log("USDC-RON CLAIM SUCCESSFUL");
+
+      // push report
+      const claim = {
+        claimUSDCpool: true,
+        rewardsClaimed: unclaimed,
+        tries: tries,
+      };
+
+      return claim;
+    }
+  } catch (error) {
+    // failed disconnect
+    console.error(error);
+    console.log("Claim Attempt Failed!");
+    console.log("reconnecting...");
+    disconnect();
+
+    // try again...
+    await delay();
+    await connect();
+    return await claimUSDCpool(++tries);
+  }
+
+  return false;
+};
+
+// Claims Function Part 1
+const claimWETHpool = async (tries = 1) => {
+  try {
+    // limit to maximum 8 tries
+    if (tries > 8) return false;
+    console.log(`Try #${tries}...`);
+    console.log("Claiming WETH-RON Rewards...");
 
     // get pending rewards amount
     const u = await claimsContract.getPendingRewards(WALLET_ADDRESS);
@@ -488,24 +616,16 @@ const claimRONrewards = async (tries = 1) => {
 
     // wait for transaction to complete
     if (receipt) {
-      claims.previousClaim = new Date().toString();
-      console.log("RON CLAIM SUCCESSFUL");
-      const balance = await provider.getBalance(WALLET_ADDRESS);
-      const formatted_bal = ethers.utils.formatEther(balance);
-      console.log("RON Balance: " + formatted_bal);
+      console.log("WETH-RON CLAIM SUCCESSFUL");
 
       // push report
       const claim = {
-        claimRONrewards: true,
+        claimWETHpool: true,
         rewardsClaimed: unclaimed,
-        ronBalance: formatted_bal,
         tries: tries,
       };
-      report.push(claim);
 
-      // schedule next claim
-      scheduleNext(new Date());
-      return balance;
+      return claim;
     }
   } catch (error) {
     // failed disconnect
@@ -517,7 +637,7 @@ const claimRONrewards = async (tries = 1) => {
     // try again...
     await delay();
     await connect();
-    return await claimRONrewards(++tries);
+    return await claimWETHpool(++tries);
   }
 
   return false;
