@@ -284,6 +284,12 @@ const quoteAmount = (tknAmt, LPreserves) => {
     const tknReserves = BigInt(LPreserves.tknBalance);
     const ronAmt = (tknAmt * ronReserves) / tknReserves;
 
+    // Calculate current price
+    const ratio = ronReserves / tknReserves;
+    const priceBN = BigNumber.from(ratio);
+    const p = ethers.utils.formatEther(priceBN);
+    report.push({ price: p });
+
     return BigNumber.from(ronAmt);
   } catch (error) {
     console.error(error);
