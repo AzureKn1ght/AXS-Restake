@@ -45,6 +45,7 @@ const usdcLP = "0x4f7687affc10857fccd0938ecda0947de7ad3812"; //For RON-USDC LP
 // Ethers vars for connections
 var wallet,
   provider,
+  errorLog,
   lpContract,
   wethContract,
   katanaRouter,
@@ -142,6 +143,7 @@ const RONCompound = async () => {
   report.push("--- RONCompound Report ---");
   try {
     await connect();
+    errorLog = [];
 
     // claim RON rewards, retries 8 times max
     const ronBalance = await claimRONrewards();
@@ -160,6 +162,7 @@ const RONCompound = async () => {
     };
 
     report.push(compound);
+    report.push(errorLog);
   } catch (error) {
     report.push("RONCompound failed!");
     report.push(error);
@@ -217,10 +220,9 @@ const addRewardstoLP = async (ronBalance, tries = 1) => {
     console.log("USDC Amount: " + ethers.utils.formatEther(usdcAmt));
     console.log("RON Amount: " + ethers.utils.formatEther(ronAmt));
 
-    // msg.value is treated as the amount desired
-    const randomGas = getRandomNum(400000, 500000);
+    // msg.value is amt desired
     const overrideOptions = {
-      gasLimit: randomGas,
+      gasLimit: randomGas(),
       value: ronAmt,
     };
 
@@ -266,6 +268,8 @@ const addRewardstoLP = async (ronBalance, tries = 1) => {
     console.log("Add Liquidity Failed!");
     console.log("reconnecting...");
     disconnect();
+
+    errorLog.push(error);
 
     // try again
     await delay();
@@ -337,7 +341,7 @@ const stakeLPintoFarm = async (LPtokenBal, tries = 1) => {
 
     // set random gasLimit
     const overrideOptions = {
-      gasLimit: getRandomNum(400000, 500000),
+      gasLimit: randomGas(),
     };
 
     // execute LP staking transaction
@@ -367,6 +371,8 @@ const stakeLPintoFarm = async (LPtokenBal, tries = 1) => {
     console.log("reconnecting...");
     disconnect();
 
+    errorLog.push(error);
+
     // try again
     await delay();
     await connect();
@@ -378,9 +384,6 @@ const stakeLPintoFarm = async (LPtokenBal, tries = 1) => {
 // Swap Function
 const swapRONforTokens = async (amount, path) => {
   try {
-    // set gasLimit and swaps path
-    const randomGas = getRandomNum(400000, 500000);
-
     // get amount out from katana router
     const amtInFormatted = ethers.utils.formatEther(amount);
     const result = await katanaRouter.getAmountsOut(amount, path);
@@ -393,7 +396,7 @@ const swapRONforTokens = async (amount, path) => {
 
     // set transaction options
     const overrideOptions = {
-      gasLimit: randomGas,
+      gasLimit: randomGas(),
       value: amount,
     };
 
@@ -423,8 +426,7 @@ const swapRONforTokens = async (amount, path) => {
 // Swap Function (Not Used)
 const swapRONforWETH = async (amount) => {
   try {
-    // set gasLimit and swaps path
-    const randomGas = getRandomNum(400000, 500000);
+    // set swaps path
     const path = [WRON, WETH];
 
     // get amount out from katana router
@@ -439,7 +441,7 @@ const swapRONforWETH = async (amount) => {
 
     // set transaction options
     const overrideOptions = {
-      gasLimit: randomGas,
+      gasLimit: randomGas(),
       value: amount,
     };
 
@@ -488,7 +490,7 @@ const swapExactTokensForRON = async (amountIn, path) => {
 
     // set random gasLimit
     const overrideOptions = {
-      gasLimit: getRandomNum(400000, 500000),
+      gasLimit: randomGas(),
     };
 
     // execute the swap using the appropriate function
@@ -560,9 +562,12 @@ const claimUSDCpool = async (tries = 1) => {
     const unclaimed = ethers.utils.formatEther(u);
     console.log(`Unclaimed Rewards: ${unclaimed} RON`);
 
+    const price = (19 + tries).toString();
+
     // set random gasLimit
     const overrideOptions = {
-      gasLimit: getRandomNum(317811, 514229),
+      gasPrice: ethers.utils.parseUnits(price, "gwei").toString(),
+      gasLimit: randomGas(),
     };
 
     // execute the RON claiming transaction
@@ -589,6 +594,8 @@ const claimUSDCpool = async (tries = 1) => {
     console.log("reconnecting...");
     disconnect();
 
+    errorLog.push(error);
+
     // try again...
     await delay();
     await connect();
@@ -611,9 +618,12 @@ const claimWETHpool = async (tries = 1) => {
     const unclaimed = ethers.utils.formatEther(u);
     console.log(`Unclaimed Rewards: ${unclaimed} RON`);
 
+    const price = (19 + tries).toString();
+
     // set random gasLimit
     const overrideOptions = {
-      gasLimit: getRandomNum(317811, 514229),
+      gasPrice: ethers.utils.parseUnits(price, "gwei").toString(),
+      gasLimit: randomGas(),
     };
 
     // execute the RON claiming transaction
@@ -640,6 +650,8 @@ const claimWETHpool = async (tries = 1) => {
     console.log("reconnecting...");
     disconnect();
 
+    errorLog.push(error);
+
     // try again...
     await delay();
     await connect();
@@ -653,6 +665,7 @@ const claimWETHpool = async (tries = 1) => {
 const sendReport = (report) => {
   // get the formatted date
   const today = todayDate();
+  report.push(errorLog);
   console.log(report);
 
   // configure email server
@@ -733,6 +746,11 @@ const getRandomNum = (min, max) => {
     console.error(error);
   }
   return max;
+};
+
+// Generate random gas Function
+const randomGas = () => {
+  return getRandomNum(1049897, 1285607);
 };
 
 // Random Time Delay Function
