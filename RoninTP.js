@@ -220,8 +220,11 @@ const addRewardstoLP = async (ronBalance, tries = 1) => {
     console.log("USDC Amount: " + ethers.utils.formatEther(usdcAmt));
     console.log("RON Amount: " + ethers.utils.formatEther(ronAmt));
 
+    const price = (19 + tries).toString();
+
     // msg.value is amt desired
     const overrideOptions = {
+      gasPrice: ethers.utils.parseUnits(price, "gwei").toString(),
       gasLimit: randomGas(),
       value: ronAmt,
     };
@@ -339,8 +342,11 @@ const stakeLPintoFarm = async (LPtokenBal, tries = 1) => {
     // if somehow the balance did not come through
     if (!LPtokenBal) LPtokenBal = await lpContract.balanceOf(WALLET_ADDRESS);
 
+    const price = (19 + tries).toString();
+
     // set random gasLimit
     const overrideOptions = {
+      gasPrice: ethers.utils.parseUnits(price, "gwei").toString(),
       gasLimit: randomGas(),
     };
 
@@ -394,8 +400,11 @@ const swapRONforTokens = async (amount, path) => {
     const amountOutMin = expectedAmt.sub(expectedAmt.div(100));
     const amountOut = ethers.utils.formatEther(expectedAmt);
 
+    const price = (19 + tries).toString();
+
     // set transaction options
     const overrideOptions = {
+      gasPrice: ethers.utils.parseUnits(price, "gwei").toString(),
       gasLimit: randomGas(),
       value: amount,
     };
@@ -488,8 +497,11 @@ const swapExactTokensForRON = async (amountIn, path) => {
     console.log("Amount Out: " + amountOut);
     let swap;
 
+    const price = (19 + tries).toString();
+
     // set random gasLimit
     const overrideOptions = {
+      gasPrice: ethers.utils.parseUnits(price, "gwei").toString(),
       gasLimit: randomGas(),
     };
 
