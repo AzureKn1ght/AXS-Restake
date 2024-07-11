@@ -193,12 +193,13 @@ const addRewardstoLP = async (ronBalance, tries = 1) => {
     const usdcBalance = await usdcContract.balanceOf(WALLET_ADDRESS);
     if (usdcBalance.gt(0)) {
       const path = [USDC, WRON];
-      await swapExactTokensForRON(usdcBalance, path);
+      report.push({ usdc: usdcBalance.gt(0) });
+      await swapExactTokensForRON(usdcBalance, path, tries);
     }
     ronBalance = await provider.getBalance(WALLET_ADDRESS);
 
     // calculate RON to keep
-    const gasUsage = ethers.utils.parseUnits("2000000", "gwei");
+    const gasUsage = ethers.utils.parseUnits("20000000", "gwei");
     const keepRON = ethers.utils.parseUnits("0.02", "ether");
     ronBalance = ronBalance.sub(keepRON).sub(gasUsage);
 
@@ -208,7 +209,7 @@ const addRewardstoLP = async (ronBalance, tries = 1) => {
     amountForUSDC = ethers.utils.parseEther(amountForUSDC.toString());
 
     // swap half of the RON to USDC and get the balance
-    let usdcAmt = await swapRONforTokens(amountForUSDC, [WRON, USDC]);
+    let usdcAmt = await swapRONforTokens(amountForUSDC, [WRON, USDC], tries);
     usdcAmt = await usdcContract.balanceOf(WALLET_ADDRESS);
     const usdcAmtMin = usdcAmt.sub(usdcAmt.div(100));
 
@@ -272,7 +273,7 @@ const addRewardstoLP = async (ronBalance, tries = 1) => {
     console.log("reconnecting...");
     disconnect();
 
-    errorLog.push(error);
+    //errorLog.push(error); //for debug
 
     // try again
     await delay();
@@ -388,7 +389,7 @@ const stakeLPintoFarm = async (LPtokenBal, tries = 1) => {
 };
 
 // Swap Function
-const swapRONforTokens = async (amount, path) => {
+const swapRONforTokens = async (amount, path, tries = 1) => {
   try {
     // get amount out from katana router
     const amtInFormatted = ethers.utils.formatEther(amount);
@@ -427,6 +428,7 @@ const swapRONforTokens = async (amount, path) => {
     }
   } catch (error) {
     console.error(error);
+    errorLog.push(error); //for debug
   }
 
   return false;
@@ -479,7 +481,7 @@ const swapRONforWETH = async (amount) => {
 };
 
 // Swaps Function
-const swapExactTokensForRON = async (amountIn, path) => {
+const swapExactTokensForRON = async (amountIn, path, tries = 1) => {
   try {
     // get amount out from katana router
     const amtInFormatted = ethers.utils.formatEther(amountIn);
@@ -523,6 +525,7 @@ const swapExactTokensForRON = async (amountIn, path) => {
     }
   } catch (error) {
     console.error(error);
+    errorLog.push(error); //for debug
   }
   return false;
 };
@@ -606,7 +609,7 @@ const claimUSDCpool = async (tries = 1) => {
     console.log("reconnecting...");
     disconnect();
 
-    errorLog.push(error);
+    //errorLog.push(error); //for debug
 
     // try again...
     await delay();
@@ -662,7 +665,7 @@ const claimWETHpool = async (tries = 1) => {
     console.log("reconnecting...");
     disconnect();
 
-    errorLog.push(error);
+    //errorLog.push(error); //for debug
 
     // try again...
     await delay();
